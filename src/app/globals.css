@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Palet UI Kit Figma: OmniCRM Agro */
+  --color-agro: #047857;          /* Agro Green - sukses/tersedia */
+  --color-agro-deep: #065f46;
+  --color-agro-soft: #d1fae5;
+  --color-agro-mist: #ecfdf5;
+  --color-corporate: #2563eb;     /* Corporate Blue - B2B enterprise */
+  --color-corporate-soft: #dbeafe;
+  --color-corporate-mist: #eff6ff;
+  --color-warning: #d97706;       /* Warning Yellow - approval */
+  --color-warning-soft: #fef3c7;
+  --color-warning-mist: #fffbeb;
+  --color-danger: #dc2626;        /* Toxic Red - expired/penolakan */
+  --color-danger-soft: #fee2e2;
+  --color-danger-mist: #fef2f2;
+  --color-ink: #0f172a;
+  --color-slate-common: #64748b;
+  --color-mist: #f8fafc;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.progress-animated {
+  background: linear-gradient(90deg, #10b981 25%, #34d399 50%, #10b981 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-pop {
+  animation: popIn 0.22s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade {
+  animation: fadeIn 0.18s ease-out;
 }
