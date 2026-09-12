@@ -12,7 +12,6 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Bell,
   MapPin,
   Leaf,
   Menu,
@@ -135,15 +134,15 @@ export default function AppShell({ user, children }: { user: SessionUser; childr
         </button>
         <div className="flex-1">
           <div className="text-[15px] font-bold leading-tight text-ink">{pageTitle(pathname)}</div>
-          <div className="text-xs text-slate-500">OmniCRM Agro - Kelola Pipeline</div>
+          <div className="text-xs text-slate-500">OmniCRM Agro</div>
         </div>
-        <button className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100" aria-label="Notifikasi">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-danger" />
+        <button
+          onClick={logout}
+          className="flex items-center gap-1.5 rounded-xl border border-danger/30 bg-danger-mist px-3 py-2 text-xs font-bold text-danger hover:bg-danger hover:text-white"
+          aria-label="Keluar"
+        >
+          <LogOut className="h-4 w-4" /> Keluar
         </button>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-corporate text-[11px] font-bold text-white">
-          {user.full_name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
-        </div>
       </header>
 
       {/* Mobile drawer */}
