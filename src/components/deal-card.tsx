@@ -1,7 +1,8 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
-import { ChevronRight, Truck, Factory, AlertTriangle } from "lucide-react";
+import { ChevronRight, Truck, Factory, AlertTriangle, ChevronsUp } from "lucide-react";
 import type { DealCard } from "@/lib/types";
 import { formatIDR, timeAgo } from "@/lib/format";
 import { STAGE_ORDER, STAGE_PROGRESS, STAGE_COLORS } from "@/lib/stages";
@@ -11,6 +12,13 @@ export default function DealCardView({ deal, onMove }: { deal: DealCard; onMove?
   const progress = STAGE_PROGRESS[deal.pipeline_stage] ?? 0;
   const nextStage = STAGE_ORDER[stageIdx + 1];
   const prevStage = STAGE_ORDER[stageIdx - 1];
+  const [jumpOpen, setJumpOpen] = React.useState(false);
+
+  // Tahap yang bisa dilompati (abaikan Pending Approval / Closed Lost yang punya alur khusus)
+  const jumpTargets =
+    onMove && stageIdx >= 0
+      ? STAGE_ORDER.filter((s, i) => i > stageIdx && s !== "Pending Approval" && s !== "Closed Lost")
+      : [];
 
   const urgent = deal.urgency === "urgent";
   const pendingApproval = deal.has_approval > 0 || deal.discount_status === "pending";
@@ -90,22 +98,46 @@ export default function DealCardView({ deal, onMove }: { deal: DealCard; onMove?
       )}
 
       {onMove && (
-        <div className="mt-3 flex gap-2" onClick={(e) => e.preventDefault()}>
-          {prevStage && (
-            <button
-              onClick={() => onMove(prevStage)}
-              className="flex-1 rounded-lg border border-slate-200 py-1.5 text-xs font-semibold text-slate-500 hover:border-agro hover:text-agro"
-            >
-              ← {prevStage.replace("Quotation & Negotiation", "Negosiasi").replace("&", "&")}
-            </button>
-          )}
-          {nextStage && deal.pipeline_stage !== "Pending Approval" && (
-            <button
-              onClick={() => onMove(nextStage)}
-              className="flex-1 rounded-lg bg-agro py-1.5 text-xs font-semibold text-white hover:bg-agro-deep"
-            >
-              {nextStage.replace("Quotation & Negotiation", "Negosiasi")} →
-            </button>
+        <div className="mt-3 space-y-2" onClick={(e) => e.preventDefault()}>
+          <div className="flex gap-2">
+            {prevStage && (
+              <button
+                onClick={() => onMove(prevStage)}
+                className="flex-1 rounded-lg border border-slate-200 py-1.5 text-xs font-semibold text-slate-500 hover:border-agro hover:text-agro"
+              >
+                ← {prevStage.replace("Quotation & Negotiation", "Negosiasi").replace("&", "&")}
+              </button>
+            )}
+            {nextStage && deal.pipeline_stage !== "Pending Approval" && (
+              <button
+                onClick={() => onMove(nextStage)}
+                className="flex-1 rounded-lg bg-agro py-1.5 text-xs font-semibold text-white hover:bg-agro-deep"
+              >
+                {nextStage.replace("Quotation & Negotiation", "Negosiasi")} →
+              </button>
+            )}
+            {jumpTargets.length > 0 && (
+              <button
+                onClick={() => setJumpOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-lg border border-dashed border-agro/40 px-3 py-1.5 text-[11px] font-semibold text-agro hover:bg-agro-mist"
+              >
+                <ChevronsUp className="h-3.5 w-3.5" /> Lompat
+              </button>
+            )}
+          </div>
+          {jumpOpen && jumpTargets.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+              <div className="mb-1 px-2 text-[10px] font-bold uppercase text-slate-400">Lompat ke tahap</div>
+              {jumpTargets.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setJumpOpen(false); onMove(t); }}
+                  className="block w-full rounded-lg px-3 py-1.5 text-left text-xs font-semibold text-slate-600 hover:bg-agro-mist hover:text-agro"
+                >
+                  → {t.replace("Quotation & Negotiation", "Negosiasi")}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
