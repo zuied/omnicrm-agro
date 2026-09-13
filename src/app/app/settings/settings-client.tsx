@@ -1,16 +1,22 @@
 "use client";
 
 import React from "react";
-import { Settings, UserCog, Users, Boxes, ScrollText, Plug, Lock } from "lucide-react";
+import { Settings, UserCog, Users, Boxes, ScrollText, Plug, Lock, Contact } from "lucide-react";
 import { apiFetcher } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { Button, Chip, Spinner } from "@/components/ui";
+import { ContactForm, ProductForm } from "@/components/admin-forms";
 
 interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; }
-interface Master { users: { id: number; full_name: string; email: string; role: string; is_active: number }[]; products: { id: number; product_name: string; category: string; is_active: number }[]; }
+interface Master {
+  users: { id: number; full_name: string; email: string; role: string; is_active: number }[];
+  products: { id: number; product_name: string; category: string; is_active: number }[];
+  contacts: { id: number; account_id: number | null; name: string; job_title: string | null; whatsapp_number: string | null; email: string | null; type: "B2B" | "B2C"; region: string | null }[];
+  warehouses: { id: number; warehouse_name: string; region: string | null }[];
+}
 
 export default function SettingsClient() {
-  const [tab, setTab] = React.useState<"integrasi" | "pengguna" | "produk" | "audit">("integrasi");
+  const [tab, setTab] = React.useState<"integrasi" | "pengguna" | "kontak" | "produk" | "audit">("integrasi");
   const [saved, setSaved] = React.useState<Record<string, boolean>>({});
   const [audits, setAudits] = React.useState<Audits[] | null>(null);
   const [master, setMaster] = React.useState<Master | null>(null);
@@ -19,12 +25,12 @@ export default function SettingsClient() {
     apiFetcher<{ audits: Audits[] }>("/api/audit").then((r) => setAudits(r.audits)).catch(() => setAudits([]));
   };
   const loadMaster = () => {
-    apiFetcher<Master>("/api/admin/master").then(setMaster).catch(() => setMaster({ users: [], products: [] }));
+    apiFetcher<Master>("/api/admin/master").then(setMaster).catch(() => setMaster({ users: [], products: [], contacts: [], warehouses: [] }));
   };
 
   React.useEffect(() => {
     if (tab === "audit") loadAudit();
-    if (tab === "pengguna" || tab === "produk") loadMaster();
+    if (tab === "pengguna" || tab === "kontak" || tab === "produk") loadMaster();
   }, [tab]);
 
   const save = async (key: string) => {
@@ -46,6 +52,7 @@ export default function SettingsClient() {
         {([
           ["integrasi", Plug, "Integrasi"],
           ["pengguna", Users, "Pengguna"],
+          ["kontak", Contact, "Kontak"],
           ["produk", Boxes, "Produk"],
           ["audit", ScrollText, "Audit Log"],
         ] as const).map(([k, Icon, label]) => (
@@ -129,23 +136,60 @@ export default function SettingsClient() {
         </div>
       )}
 
-      {tab === "produk" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Boxes className="h-4 w-4 text-agro" /> Master Produk</div>
-          {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
-            <div className="space-y-2">
-              {master.products.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-ink">{p.product_name}</div>
-                    <div className="text-xs text-slate-500">ID #{p.id}</div>
+      {tab === "kontak" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Contact className="h-4 w-4 text-agro" /> Tambah Kontak</div>
+            <ContactForm onDone={loadMaster} />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Users className="h-4 w-4 text-corporate" /> Daftar Kontak</div>
+            {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
+              <div className="space-y-2">
+                {master.contacts.map((c) => (
+                  <div key={`${c.type}-${c.id}`} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-white ${c.type === "B2B" ? "bg-corporate" : "bg-agro"}`}>
+                      {c.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-ink">{c.name}</div>
+                      <div className="text-xs text-slate-500">{c.job_title && `${c.job_title} · `}{c.whatsapp_number ?? c.email ?? "-"}{c.region && ` · ${c.region}`}</div>
+                    </div>
+                    <Chip tone={c.type === "B2B" ? "blue" : "green"}>{c.type}</Chip>
                   </div>
-                  <Chip tone={p.category === "KIMIA" ? "red" : "violet"}>{p.category}</Chip>
-                  <Chip tone={p.is_active ? "green" : "slate"}>{p.is_active ? "Aktif" : "Nonaktif"}</Chip>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+                {master.contacts.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Belum ada kontak.</div>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "produk" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Boxes className="h-4 w-4 text-agro" /> Tambah Produk</div>
+            <ProductForm warehouses={master?.warehouses ?? []} onDone={loadMaster} />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Boxes className="h-4 w-4 text-agro" /> Master Produk</div>
+            {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
+              <div className="space-y-2">
+                {master.products.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-ink">{p.product_name}</div>
+                      <div className="text-xs text-slate-500">ID #{p.id}</div>
+                    </div>
+                    <Chip tone={p.category === "KIMIA" ? "red" : "violet"}>{p.category}</Chip>
+                    <Chip tone={p.is_active ? "green" : "slate"}>{p.is_active ? "Aktif" : "Nonaktif"}</Chip>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

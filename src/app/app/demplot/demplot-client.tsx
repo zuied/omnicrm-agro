@@ -202,6 +202,7 @@ export default function DemplotClient() {
         ) : (
           <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-800 to-slate-900 px-6 text-center">
             {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element -- pratinjau data URL hasil kamera/canvas, tidak untuk dioptimasi next/image
               <img src={preview.src} alt="Preview" className="max-h-56 rounded-xl object-contain shadow-lg" />
             ) : (
               <>
@@ -263,6 +264,7 @@ export default function DemplotClient() {
       {compressed && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- data URL hasil kompresi canvas, tidak untuk dioptimasi next/image */}
             <img src={compressed.dataUrl} alt="Hasil kompresi" className="h-28 w-28 rounded-xl object-cover" />
             <div className="flex-1">
               <div className="text-sm font-bold text-ink">Siap diunggah</div>

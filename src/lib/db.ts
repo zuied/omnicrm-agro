@@ -1,4 +1,22 @@
 import mysql from "mysql2/promise";
+import { readFileSync, existsSync } from "node:fs";
+
+// Koneksi aman (TSL/SSL) untuk database eksternal seperti Aiven.
+// DB_SSL=1 + DB_SSL_CA=path → pakai CA certificate; DB_SSL=1 tanpa CA → trust-all (MVP).
+const sslMode = process.env.DB_SSL === "1" || process.env.DB_SSL === "true";
+const caFile = process.env.DB_SSL_CA;
+
+let sslConfig: { ca?: string | Buffer; rejectUnauthorized?: boolean } | undefined;
+if (sslMode) {
+  if (caFile) {
+    if (!existsSync(caFile)) {
+      throw new Error(`DB_SSL_CA tidak ditemukan: ${caFile}`);
+    }
+    sslConfig = { ca: readFileSync(caFile) };
+  } else {
+    sslConfig = { rejectUnauthorized: false };
+  }
+}
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST ?? "127.0.0.1",
@@ -12,6 +30,7 @@ const pool = mysql.createPool({
   decimalNumbers: false,
   dateStrings: true,
   timezone: "local",
+  ssl: sslConfig,
 });
 
 export type QueryResult = mysql.ResultSetHeader;

@@ -15,6 +15,7 @@ interface ReportResp {
   stages: { key: string; cnt: number; total: number }[];
   pipelineValue: number;
   conversionRate: number;
+  openCount: number;
 }
 
 export default function PipelineClient({ canCreate = true }: { canCreate?: boolean }) {
@@ -75,7 +76,7 @@ export default function PipelineClient({ canCreate = true }: { canCreate?: boole
         {[
           { icon: TrendingUp, label: "Total Pipeline Aktif", value: formatIDR(report?.pipelineValue ?? 0), sub: "Semua kanal & sales" },
           { icon: Target, label: "Tingkat Konversi", value: `${report?.conversionRate ?? 0}%`, sub: "Closed Won vs total deal" },
-          { icon: Trophy, label: "Deal Sedang Berjalan", value: String(report?.stages.reduce((s, x) => s + x.cnt, 0) ?? 0), sub: "di semua stage" },
+          { icon: Trophy, label: "Deal Sedang Berjalan", value: String(report?.openCount ?? 0), sub: "di luar Closed Won/Lost" },
         ].map((c) => (
           <div key={c.label} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-agro-mist text-agro">

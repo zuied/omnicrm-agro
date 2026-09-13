@@ -9,13 +9,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
 function env(key, dflt) {
+  if (process.env[key] !== undefined && process.env[key] !== "") return process.env[key];
   const f = path.join(root, ".env.local");
   if (existsSync(f)) {
     for (const line of readFileSync(f, "utf8").split(/\r?\n/)) {
       if (line.startsWith(key + "=")) return line.slice(key.length + 1).trim();
     }
   }
-  return process.env[key] ?? dflt;
+  return dflt;
 }
 
 const HOST = env("DB_HOST", "127.0.0.1");
@@ -23,11 +24,24 @@ const PORT = Number(env("DB_PORT", "3306"));
 const USER = env("DB_USER", "root");
 const PASSWORD = env("DB_PASSWORD", "");
 const DB = env("DB_NAME", "omnicrm_agro");
+const SKIP_CREATE = env("DB_SKIP_CREATE", "") === "1";
 
-const conn = await mysql.createConnection({ host: HOST, port: PORT, user: USER, password: PASSWORD, multipleStatements: true });
-await conn.query(`DROP DATABASE IF EXISTS \`${DB}\``);
-await conn.query(`CREATE DATABASE \`${DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-await conn.query(`USE \`${DB}\``);
+const SSL = env("DB_SSL", "") === "1" || env("DB_SSL", "") === "true";
+const CA_FILE = env("DB_SSL_CA", "");
+const sslOpt = SSL
+  ? (CA_FILE && existsSync(path.join(root, CA_FILE))
+      ? { ca: readFileSync(path.join(root, CA_FILE)) }
+      : { rejectUnauthorized: false })
+  : undefined;
+
+const conn = await mysql.createConnection({ host: HOST, port: PORT, user: USER, password: PASSWORD, multipleStatements: true, ssl: sslOpt });
+if (SKIP_CREATE) {
+  await conn.query(`USE \`${DB}\``);
+} else {
+  await conn.query(`DROP DATABASE IF EXISTS \`${DB}\``);
+  await conn.query(`CREATE DATABASE \`${DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  await conn.query(`USE \`${DB}\``);
+}
 
 const schema = readFileSync(path.join(__dirname, "schema.sql"), "utf8");
 await conn.query(schema);

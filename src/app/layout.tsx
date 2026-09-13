@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id" className={`${inter.variable} antialiased`}>
+    <html lang="id" data-scroll-behavior="smooth" className={`${inter.variable} antialiased`}>
       <body className="min-h-screen bg-slate-100">{children}</body>
     </html>
   );

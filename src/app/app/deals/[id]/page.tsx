@@ -3,6 +3,7 @@
 import React from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft, Factory, Truck, ReceiptText, Lock, Unlock,
   Camera, MessageSquareText, Copy, Check, Send, CalendarClock, AlertTriangle,
@@ -255,8 +256,8 @@ export default function DealDetail() {
                   </div>
                   {t.description && <div className="mt-0.5 text-xs text-slate-500">{t.description}</div>}
                   {t.media_url && (
-                    <a href={t.media_url} target="_blank" rel="noreferrer" className="mt-2 block overflow-hidden rounded-xl border border-slate-200">
-                      <img src={t.media_url} alt="Demplot" className="h-36 w-full object-cover" />
+                    <a href={t.media_url} target="_blank" rel="noreferrer" className="relative mt-2 block h-36 w-full overflow-hidden rounded-xl border border-slate-200">
+                      <Image src={t.media_url} alt="Demplot" fill className="object-cover" sizes="(max-width: 768px) 100vw, 640px" unoptimized />
                     </a>
                   )}
                   {t.media_size_kb ? <div className="mt-1 text-[11px] text-slate-400">{t.media_size_kb} KB</div> : null}

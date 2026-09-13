@@ -6,13 +6,12 @@ import { TrendingUp, Target, Trophy, AlertTriangle, ArrowRight, Warehouse, Camer
 import { apiFetcher, type DealCard } from "@/lib/types";
 import { useSessionUser } from "@/lib/session";
 import { formatIDR } from "@/lib/format";
-import { KANBAN_COLUMNS } from "@/lib/types";
 import DealCardView from "@/components/deal-card";
 
 interface DashData {
   pipelineValue: number;
   conversionRate: number;
-  stages: { key: string; cnt: number }[];
+  openCount: number;
   ownerPerformance: { full_name: string; cnt: number; total: number }[];
   deals: DealCard[];
   lowStock: { variant_name: string; warehouse_name: string; qty_available: number; qty_warning: number }[];
@@ -34,7 +33,7 @@ export default function DashboardClient() {
         setData({
           pipelineValue: rep.pipelineValue,
           conversionRate: rep.conversionRate,
-          stages: rep.stages,
+          openCount: rep.openCount,
           ownerPerformance: rep.ownerPerformance,
           deals: pipe.deals,
           lowStock: (inv.stocks ?? []).filter((s: any) => Number(s.qty_available) <= Number(s.qty_warning)),
@@ -44,7 +43,6 @@ export default function DashboardClient() {
       .catch(() => {});
   }, []);
 
-  const byStage = (s: string) => data?.stages.find((x) => x.key === s)?.cnt ?? 0;
   const recent = data?.deals.slice(0, 5) ?? [];
   const requiresAction = (data?.deals ?? []).filter(
     (d) => d.discount_status === "pending" || d.urgency === "urgent"
@@ -70,7 +68,7 @@ export default function DashboardClient() {
         {[
           { icon: TrendingUp, label: "Pipeline Value", value: formatIDR(data?.pipelineValue ?? 0), tone: "text-agro bg-agro-mist" },
           { icon: Target, label: "Konversi", value: `${data?.conversionRate ?? 0}%`, tone: "text-corporate bg-corporate-soft" },
-          { icon: Trophy, label: "Deal Aktif", value: String(KANBAN_COLUMNS.reduce((s, c) => s + byStage(c), 0)), tone: "text-warning bg-warning-soft" },
+          { icon: Trophy, label: "Deal Aktif", value: String(data?.openCount ?? 0), tone: "text-warning bg-warning-soft" },
         ].map((c) => (
           <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${c.tone}`}>
