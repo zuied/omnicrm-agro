@@ -1,5 +1,6 @@
 import mysql from "mysql2/promise";
 import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
 
 // Koneksi aman (TSL/SSL) untuk database eksternal seperti Aiven.
 // DB_SSL=1 + DB_SSL_CA=path → pakai CA certificate; DB_SSL=1 tanpa CA → trust-all (MVP).
@@ -9,10 +10,18 @@ const caFile = process.env.DB_SSL_CA;
 let sslConfig: { ca?: string | Buffer; rejectUnauthorized?: boolean } | undefined;
 if (sslMode) {
   if (caFile) {
-    if (!existsSync(caFile)) {
-      throw new Error(`DB_SSL_CA tidak ditemukan: ${caFile}`);
+    const candidates = [caFile];
+    if (!path.isAbsolute(caFile)) {
+      candidates.unshift(path.join(/* turbopackIgnore: true */ process.cwd(), caFile));
     }
-    sslConfig = { ca: readFileSync(caFile) };
+    const caPath = candidates.find(existsSync);
+    if (caPath) {
+      sslConfig = { ca: readFileSync(caPath) };
+    } else {
+      // CA tidak ikut terbundle (mis. Netlify function) → pakai trust-all agar tidak crash.
+      console.warn(`[db] DB_SSL_CA "${caFile}" tidak ditemukan; fallback rejectUnauthorized:false`);
+      sslConfig = { rejectUnauthorized: false };
+    }
   } else {
     sslConfig = { rejectUnauthorized: false };
   }
