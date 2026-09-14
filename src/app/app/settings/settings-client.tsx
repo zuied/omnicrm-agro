@@ -8,7 +8,7 @@ import { Button, Chip, Spinner } from "@/components/ui";
 import { ContactForm, ProductForm, UserForm, ContactEditForm, WarehouseForm } from "@/components/admin-forms";
 import type { UserEditData, ContactEditData, WarehouseEditData } from "@/components/admin-forms";
 
-interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; }
+interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; full_name: string | null; }
 interface Master {
   users: { id: number; full_name: string; email: string; role: string; phone: string | null; region: string | null; is_active: number }[];
   products: { id: number; product_name: string; category: string; uom: string; manufacturer: string | null; requires_demplot: number; is_active: number }[];
@@ -423,11 +423,20 @@ export default function SettingsClient() {
             <div className="space-y-2">
               {audits.map((a) => (
                 <div key={a.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-2.5">
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-ink">{a.action}</div>
-                    <div className="text-xs text-slate-500">{a.entity_type && `#${a.entity_id} · `}{a.detail ?? ""}</div>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-corporate text-[10px] font-bold text-white">
+                    {initials(a.full_name)}
                   </div>
-                  <div className="text-[11px] text-slate-400">{formatDateTime(a.created_at)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-bold text-ink">{ACTION_LABELS[a.action] ?? a.action}</span>
+                      {a.entity_type && <Chip tone="slate">{a.entity_type}{a.entity_id ? ` #${a.entity_id}` : ""}</Chip>}
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-slate-500">
+                      <span className="font-semibold text-slate-600">{a.full_name ?? "Sistem"}</span>
+                      {a.detail ? ` · ${auditDetailLine(a.detail)}` : ""}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-[11px] text-slate-400">{formatDateTime(a.created_at)}</div>
                 </div>
               ))}
             </div>
@@ -436,6 +445,72 @@ export default function SettingsClient() {
       )}
     </div>
   );
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  DEAL_CREATE: "Deal dibuat",
+  DEAL_UPDATE: "Deal diperbarui",
+  USER_CREATE: "Akun pengguna ditambahkan",
+  USER_UPDATE: "Akun pengguna diperbarui",
+  CONTACT_CREATE: "Kontak ditambahkan",
+  CONTACT_UPDATE: "Kontak diperbarui",
+  CONTACT_DELETE: "Kontak dihapus",
+  WAREHOUSE_CREATE: "Gudang ditambahkan",
+  WAREHOUSE_UPDATE: "Gudang diperbarui",
+  PRODUCT_CREATE: "Produk ditambahkan",
+  STOCK_IN: "Restok barang masuk",
+  STOCK_LOCK: "Stok dikunci",
+  APPROVAL_SUBMIT: "Approval diskon diajukan",
+  APPROVAL_REVIEW: "Approval diskon diputuskan",
+  MESSAGE_SEND: "Pesan dikirim",
+  DEMPLOT_UPLOAD: "Foto demplot diunggah",
+  SETTINGS_UPDATE: "Konfigurasi integrasi diubah",
+};
+
+const DETAIL_LABELS: Record<string, string> = {
+  qty: "qty",
+  priceBefore: "harga lama",
+  priceAfter: "harga baru",
+  name: "nama",
+  role: "role",
+  email: "email",
+  region: "region",
+  channel: "kanal",
+  company: "perusahaan",
+  type: "tipe",
+  discount: "diskon",
+  stage: "tahap",
+  warehouseId: "gudang #",
+  variantId: "varian #",
+};
+
+function auditDetailLine(detail: string | null): string {
+  if (!detail) return "";
+  try {
+    const d = JSON.parse(detail);
+    if (d && typeof d === "object" && !Array.isArray(d)) {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(d)) {
+        const label = DETAIL_LABELS[k] ?? k;
+        const value = typeof v === "object" ? JSON.stringify(v) : String(v);
+        parts.push(`${label}: ${value}`);
+      }
+      return parts.join(" · ");
+    }
+    return String(d);
+  } catch {
+    return detail;
+  }
+}
+
+function initials(name: string | null): string {
+  return (name ?? "?")
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 function Field({
