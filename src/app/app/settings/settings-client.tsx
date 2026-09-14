@@ -8,7 +8,7 @@ import { Button, Chip, Spinner } from "@/components/ui";
 import { ContactForm, ProductForm, UserForm, ContactEditForm, WarehouseForm } from "@/components/admin-forms";
 import type { UserEditData, ContactEditData, WarehouseEditData } from "@/components/admin-forms";
 
-interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; full_name: string | null; }
+interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; full_name: string | null; detailDisplay: string | null; entityLabel: string | null; }
 interface Master {
   users: { id: number; full_name: string; email: string; role: string; phone: string | null; region: string | null; is_active: number }[];
   products: { id: number; product_name: string; category: string; uom: string; manufacturer: string | null; requires_demplot: number; is_active: number }[];
@@ -429,11 +429,11 @@ export default function SettingsClient() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-sm font-bold text-ink">{ACTION_LABELS[a.action] ?? a.action}</span>
-                      {a.entity_type && <Chip tone="slate">{a.entity_type}{a.entity_id ? ` #${a.entity_id}` : ""}</Chip>}
+                      {a.entity_type && <Chip tone="slate">{entityChip(a)}</Chip>}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-slate-500">
                       <span className="font-semibold text-slate-600">{a.full_name ?? "Sistem"}</span>
-                      {a.detail ? ` · ${auditDetailLine(a.detail)}` : ""}
+                      {a.detailDisplay || a.detail ? ` · ${a.detailDisplay ?? auditDetailLine(a.detail)}` : a.detailDisplay === null && a.detail === null ? " · tanpa detail" : ""}
                     </div>
                   </div>
                   <div className="shrink-0 text-[11px] text-slate-400">{formatDateTime(a.created_at)}</div>
@@ -511,6 +511,27 @@ function initials(name: string | null): string {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+}
+
+const ENTITY_LABELS: Record<string, string> = {
+  deal: "Deal",
+  users: "Pengguna",
+  warehouses: "Gudang",
+  products: "Produk",
+  product_variants: "Varian",
+  inventory_stocks: "Stok",
+  accounts: "Kontak B2B",
+  b2c_profiles: "Kontak B2C",
+  config: "Konfigurasi",
+  message: "Pesan",
+  demplot: "Demplot",
+};
+
+function entityChip(a: Audits): string {
+  const typeLabel = ENTITY_LABELS[a.entity_type ?? ""] ?? a.entity_type ?? "";
+  if (a.entityLabel) return `${typeLabel} · ${a.entityLabel}`;
+  if (typeLabel && a.entity_id) return `${typeLabel} #${a.entity_id}`;
+  return typeLabel || "—";
 }
 
 function Field({
