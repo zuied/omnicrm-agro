@@ -10,7 +10,7 @@ type AuditRow = {
   action: string;
   entity_type: string | null;
   entity_id: string | null;
-  detail: string | null;
+  detail: string | object | null;
   created_at: string;
   full_name: string | null;
 };
@@ -25,34 +25,52 @@ type Maps = {
   b2c: Map<number, string>;
 };
 
+const yesNo = (v: unknown) => (v ? "ya" : "tidak");
+const CATEGORY_LABELS: Record<string, string> = { agrochemical: "Agrokimia", equipment: "Alat & Mesin" };
+const LOCATION_LABELS: Record<string, string> = { mixed: "MIX", hazmat: "HZM", equipment: "ALT" };
+
 const DETAIL_KEY_LABELS: Record<string, { label: string; fmt?: (v: unknown, m: Maps) => string }> = {
   variantId: { label: "produk", fmt: (v, m) => m.variants.get(Number(v)) ?? `varian #${v}` },
   productId: { label: "produk", fmt: (v, m) => m.prods.get(Number(v)) ?? m.variants.get(Number(v)) ?? String(v) },
   warehouseId: { label: "gudang", fmt: (v, m) => m.wh.get(Number(v)) ?? `gudang #${v}` },
   priceBefore: { label: "harga lama", fmt: rupiah },
   priceAfter: { label: "harga baru", fmt: rupiah },
+  price: { label: "harga", fmt: rupiah },
   qty: { label: "qty", fmt: (v) => String(v) },
+  qtyAvailable: { label: "stok", fmt: (v) => String(v) },
   discount: { label: "diskon", fmt: (v) => `${v}%` },
-  stage: { label: "tahap", fmt: (v) => { const s = String(v); const map: Record<string, string> = { lead: "Lead", offer: "Penawaran", negosiasi: "Negosiasi", deal: "Deal", "follow_up": "Follow-up", lost: "Batal" }; return map[s] ?? s; } },
-  channel: { label: "kanal", fmt: (v) => String(v).toUpperCase() },
-  passwordSet: { label: "password", fmt: (v) => (v ? "diubah" : "tidak diubah") },
-  type: { label: "tipe" },
+  sku: { label: "SKU" },
+  product: { label: "produk" },
+  variant: { label: "varian" },
   name: { label: "nama" },
   role: { label: "role" },
   email: { label: "email" },
   region: { label: "region" },
   company: { label: "perusahaan" },
+  category: { label: "kategori", fmt: (v) => CATEGORY_LABELS[String(v)] ?? String(v) },
+  location_type: { label: "tipe", fmt: (v) => LOCATION_LABELS[String(v)] ?? String(v) },
+  is_active: { label: "aktif", fmt: yesNo },
+  passwordSet: { label: "password", fmt: (v) => (v ? "diubah" : "tidak diubah") },
+  tier: { label: "jenis approval" },
+  warehouse: { label: "gudang", fmt: (v) => String(v) },
+  expires: { label: "kunci" },
+  stage: { label: "tahap", fmt: (v) => String(v) },
+  channel: { label: "kanal", fmt: (v) => String(v).toUpperCase() },
+  type: { label: "tipe" },
   contactId: { label: "kontak", fmt: (v) => `#${v}` },
   approvalId: { label: "approval", fmt: (v) => `#${v}` },
 };
 
-function detailDisplay(detail: string | null, m: Maps): string | null {
-  if (!detail) return null;
-  let d: unknown;
-  try {
-    d = JSON.parse(detail);
-  } catch {
-    return detail;
+/** detail bisa berupa objek (kolom JSON MySQL) atau string; normalisasi jadi string ramah-baca. */
+function detailDisplay(detail: string | object | null, m: Maps): string | null {
+  if (detail === null || detail === undefined) return null;
+  let d: unknown = detail;
+  if (typeof detail === "string") {
+    try {
+      d = JSON.parse(detail);
+    } catch {
+      return detail;
+    }
   }
   if (!d || typeof d !== "object" || Array.isArray(d)) return String(d ?? "");
 
@@ -74,6 +92,7 @@ function detailDisplay(detail: string | null, m: Maps): string | null {
 function entityLabel(a: AuditRow, m: Maps): string | null {
   if (!a.entity_type || !a.entity_id) return null;
   const id = Number(a.entity_id);
+  if (!Number.isInteger(id)) return a.entity_id;
   switch (a.entity_type) {
     case "deal": return m.deals.get(id) ?? a.entity_id;
     case "users": return m.users.get(id) ?? a.entity_id;
@@ -82,7 +101,7 @@ function entityLabel(a: AuditRow, m: Maps): string | null {
     case "product_variants": return m.variants.get(id) ?? a.entity_id;
     case "accounts": return m.accts.get(id) ?? a.entity_id;
     case "b2c_profiles": return m.b2c.get(id) ?? a.entity_id;
-    default: return null;
+    default: return a.entity_id;
   }
 }
 

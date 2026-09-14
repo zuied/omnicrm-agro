@@ -8,7 +8,7 @@ import { Button, Chip, Spinner } from "@/components/ui";
 import { ContactForm, ProductForm, UserForm, ContactEditForm, WarehouseForm } from "@/components/admin-forms";
 import type { UserEditData, ContactEditData, WarehouseEditData } from "@/components/admin-forms";
 
-interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; full_name: string | null; detailDisplay: string | null; entityLabel: string | null; }
+interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | object | null; created_at: string; full_name: string | null; detailDisplay: string | null; entityLabel: string | null; }
 interface Master {
   users: { id: number; full_name: string; email: string; role: string; phone: string | null; region: string | null; is_active: number }[];
   products: { id: number; product_name: string; category: string; uom: string; manufacturer: string | null; requires_demplot: number; is_active: number }[];
@@ -433,7 +433,7 @@ export default function SettingsClient() {
                     </div>
                     <div className="mt-0.5 truncate text-xs text-slate-500">
                       <span className="font-semibold text-slate-600">{a.full_name ?? "Sistem"}</span>
-                      {a.detailDisplay || a.detail ? ` · ${a.detailDisplay ?? auditDetailLine(a.detail)}` : a.detailDisplay === null && a.detail === null ? " · tanpa detail" : ""}
+                      {a.detailDisplay ? ` · ${a.detailDisplay}` : a.detail ? " · tanpa detail" : ""}
                     </div>
                   </div>
                   <div className="shrink-0 text-[11px] text-slate-400">{formatDateTime(a.created_at)}</div>
@@ -466,42 +466,6 @@ const ACTION_LABELS: Record<string, string> = {
   DEMPLOT_UPLOAD: "Foto demplot diunggah",
   SETTINGS_UPDATE: "Konfigurasi integrasi diubah",
 };
-
-const DETAIL_LABELS: Record<string, string> = {
-  qty: "qty",
-  priceBefore: "harga lama",
-  priceAfter: "harga baru",
-  name: "nama",
-  role: "role",
-  email: "email",
-  region: "region",
-  channel: "kanal",
-  company: "perusahaan",
-  type: "tipe",
-  discount: "diskon",
-  stage: "tahap",
-  warehouseId: "gudang #",
-  variantId: "varian #",
-};
-
-function auditDetailLine(detail: string | null): string {
-  if (!detail) return "";
-  try {
-    const d = JSON.parse(detail);
-    if (d && typeof d === "object" && !Array.isArray(d)) {
-      const parts: string[] = [];
-      for (const [k, v] of Object.entries(d)) {
-        const label = DETAIL_LABELS[k] ?? k;
-        const value = typeof v === "object" ? JSON.stringify(v) : String(v);
-        parts.push(`${label}: ${value}`);
-      }
-      return parts.join(" · ");
-    }
-    return String(d);
-  } catch {
-    return detail;
-  }
-}
 
 function initials(name: string | null): string {
   return (name ?? "?")
