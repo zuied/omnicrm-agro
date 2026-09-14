@@ -13,13 +13,16 @@ export async function GET() {
     return NextResponse.json({ message: "Hanya admin." }, { status: 403 });
   }
   const [users, products, contacts, warehouses] = await Promise.all([
-    query("SELECT id, full_name, email, role, is_active FROM users ORDER BY role, full_name"),
+    query("SELECT id, full_name, email, role, phone, region, is_active FROM users ORDER BY role, full_name"),
     query("SELECT id, product_name, category, is_active FROM products WHERE is_active = 1 ORDER BY product_name"),
     query(
-      `SELECT c.id, c.account_id, c.first_name AS name, c.job_title, c.whatsapp_number, c.email, 'B2B' AS type, a.region
+      `SELECT c.id, c.account_id, c.first_name AS name, c.job_title, c.whatsapp_number, c.email, 'B2B' AS type, a.region,
+              a.company_name, a.legal_type, a.phone AS account_phone, a.email AS account_email
        FROM contacts c JOIN accounts a ON a.id = c.account_id
        UNION ALL
-       SELECT id, NULL, full_name, 'Petani', whatsapp_number, email, 'B2C', region FROM b2c_profiles
+       SELECT id, NULL, full_name, 'Petani', whatsapp_number, email, 'B2C', region,
+              NULL, NULL, NULL, NULL, land_size_ha, current_crop, village
+       FROM b2c_profiles
        ORDER BY type, name`
     ),
     query("SELECT id, warehouse_name, region FROM warehouses WHERE is_active = 1 ORDER BY warehouse_name"),

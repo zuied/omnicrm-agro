@@ -1,17 +1,23 @@
 "use client";
 
 import React from "react";
-import { Settings, UserCog, Users, Boxes, ScrollText, Plug, Lock, Contact } from "lucide-react";
+import { Settings, UserCog, Users, Boxes, ScrollText, Plug, Lock, Contact, Pencil, Trash2 } from "lucide-react";
 import { apiFetcher } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { Button, Chip, Spinner } from "@/components/ui";
-import { ContactForm, ProductForm } from "@/components/admin-forms";
+import { ContactForm, ProductForm, UserForm, ContactEditForm } from "@/components/admin-forms";
+import type { UserEditData, ContactEditData } from "@/components/admin-forms";
 
 interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; }
 interface Master {
-  users: { id: number; full_name: string; email: string; role: string; is_active: number }[];
+  users: { id: number; full_name: string; email: string; role: string; phone: string | null; region: string | null; is_active: number }[];
   products: { id: number; product_name: string; category: string; is_active: number }[];
-  contacts: { id: number; account_id: number | null; name: string; job_title: string | null; whatsapp_number: string | null; email: string | null; type: "B2B" | "B2C"; region: string | null }[];
+  contacts: {
+    id: number; account_id: number | null; name: string; job_title: string | null; whatsapp_number: string | null; email: string | null;
+    type: "B2B" | "B2C"; region: string | null;
+    company_name: string | null; legal_type: string | null; account_phone: string | null; account_email: string | null;
+    land_size_ha: string | number | null; current_crop: string | null; village: string | null;
+  }[];
   warehouses: { id: number; warehouse_name: string; region: string | null }[];
 }
 
@@ -34,9 +40,33 @@ export default function SettingsClient() {
   const [integ, setInteg] = React.useState<IntegForm>(EMPTY_INTEG);
   const [integFlags, setIntegFlags] = React.useState({ waSet: false, smtpSet: false });
   const [savingErr, setSavingErr] = React.useState<string | null>(null);
+  const [editingUser, setEditingUser] = React.useState<UserEditData | null>(null);
+  const [editingContact, setEditingContact] = React.useState<ContactEditData | null>(null);
 
   const setInt = <K extends "wa" | "smtp">(section: K, key: keyof IntegForm[K], v: string) =>
     setInteg((s) => ({ ...s, [section]: { ...s[section], [key]: v } }));
+
+  const toggleActive = async (u: UserEditData) => {
+    try {
+      await apiFetcher(`/api/admin/users/${u.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ full_name: u.full_name, email: u.email, role: u.role, phone: u.phone, region: u.region, is_active: u.is_active ? 0 : 1 }),
+      });
+      loadMaster();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const deleteContact = async (c: ContactEditData) => {
+    if (!window.confirm(`Hapus kontak "${c.name}"? Deal terkait tetap aman, tapi data kontak tidak bisa dikembalikan.`)) return;
+    try {
+      await apiFetcher(`/api/admin/contacts/${c.id}?type=${c.type}`, { method: "DELETE" });
+      loadMaster();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
 
   const loadAudit = () => {
     apiFetcher<{ audits: Audits[] }>("/api/audit").then((r) => setAudits(r.audits)).catch(() => setAudits([]));
@@ -168,24 +198,54 @@ export default function SettingsClient() {
       )}
 
       {tab === "pengguna" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Users className="h-4 w-4 text-corporate" /> Akun &amp; Peran</div>
-          {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
-            <div className="space-y-2">
-              {master.users.map((u) => (
-                <div key={u.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-corporate text-[11px] font-bold text-white">
-                    {u.full_name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><UserCog className="h-4 w-4 text-corporate" /> Tambah Akun Baru</div>
+            <UserForm onDone={loadMaster} />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Users className="h-4 w-4 text-corporate" /> Akun &amp; Peran</div>
+            {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
+              <div className="space-y-2">
+                {master.users.map((u) => (
+                  <div key={u.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-corporate text-[11px] font-bold text-white">
+                      {u.full_name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                    </div>
+                    <div className="min-w-[180px] flex-1">
+                      <div className="text-sm font-semibold text-ink">{u.full_name}</div>
+                      <div className="text-xs text-slate-500">{u.email}{u.region ? ` · ${u.region}` : ""}</div>
+                    </div>
+                    <Chip tone={u.role === "admin" ? "red" : u.role === "manager" ? "yellow" : u.role === "hos" ? "violet" : "blue"}>
+                      {u.role.toUpperCase()}
+                    </Chip>
+                    <Chip tone={u.is_active ? "green" : "slate"}>{u.is_active ? "Aktif" : "Nonaktif"}</Chip>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => setEditingUser({ id: u.id, full_name: u.full_name, email: u.email, role: u.role, phone: u.phone, region: u.region, is_active: u.is_active })}
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => toggleActive(u)}>
+                      {u.is_active ? "Nonaktifkan" : "Aktifkan"}
+                    </Button>
                   </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-ink">{u.full_name}</div>
-                    <div className="text-xs text-slate-500">{u.email}</div>
-                  </div>
-                  <Chip tone={u.role === "admin" ? "red" : u.role === "manager" ? "yellow" : u.role === "hos" ? "violet" : "blue"}>
-                    {u.role.toUpperCase()}
-                  </Chip>
-                </div>
-              ))}
+                ))}
+                {master.users.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Belum ada pengguna.</div>}
+              </div>
+            )}
+          </div>
+
+          {editingUser && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Pencil className="h-4 w-4 text-corporate" /> Edit Akun</div>
+              <UserForm
+                key={editingUser.id}
+                initial={editingUser}
+                onCancel={() => setEditingUser(null)}
+                onDone={() => { setEditingUser(null); loadMaster(); }}
+              />
             </div>
           )}
         </div>
@@ -198,20 +258,41 @@ export default function SettingsClient() {
             <ContactForm onDone={loadMaster} />
           </div>
 
+          {editingContact && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Pencil className="h-4 w-4 text-agro" /> Edit Kontak</div>
+              <ContactEditForm
+                key={`${editingContact.type}-${editingContact.id}`}
+                contact={editingContact}
+                onCancel={() => setEditingContact(null)}
+                onDone={() => { setEditingContact(null); loadMaster(); }}
+              />
+            </div>
+          )}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Users className="h-4 w-4 text-corporate" /> Daftar Kontak</div>
             {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
               <div className="space-y-2">
                 {master.contacts.map((c) => (
-                  <div key={`${c.type}-${c.id}`} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
+                  <div key={`${c.type}-${c.id}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
                     <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-white ${c.type === "B2B" ? "bg-corporate" : "bg-agro"}`}>
                       {c.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                     </div>
-                    <div className="flex-1">
+                    <div className="min-w-[180px] flex-1">
                       <div className="text-sm font-semibold text-ink">{c.name}</div>
                       <div className="text-xs text-slate-500">{c.job_title && `${c.job_title} · `}{c.whatsapp_number ?? c.email ?? "-"}{c.region && ` · ${c.region}`}</div>
                     </div>
                     <Chip tone={c.type === "B2B" ? "blue" : "green"}>{c.type}</Chip>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => setEditingContact({ type: c.type, id: c.id, name: c.name, job_title: c.job_title, whatsapp_number: c.whatsapp_number, email: c.email, region: c.region, company_name: c.company_name, legal_type: c.legal_type, account_phone: c.account_phone, account_email: c.account_email, land_size_ha: c.land_size_ha, current_crop: c.current_crop, village: c.village })}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => deleteContact({ type: c.type, id: c.id, name: c.name, job_title: c.job_title, whatsapp_number: c.whatsapp_number, email: c.email, region: c.region, company_name: c.company_name, legal_type: c.legal_type, account_phone: c.account_phone, account_email: c.account_email, land_size_ha: c.land_size_ha, current_crop: c.current_crop, village: c.village })}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 ))}
                 {master.contacts.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Belum ada kontak.</div>}
