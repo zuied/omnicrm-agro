@@ -1,12 +1,12 @@
 "use client";
 
 import React from "react";
-import { Settings, UserCog, Users, Boxes, ScrollText, Plug, Lock, Contact, Pencil, Trash2 } from "lucide-react";
+import { Settings, UserCog, Users, Boxes, ScrollText, Plug, Lock, Contact, Pencil, Trash2, Warehouse } from "lucide-react";
 import { apiFetcher } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { Button, Chip, Spinner } from "@/components/ui";
-import { ContactForm, ProductForm, UserForm, ContactEditForm } from "@/components/admin-forms";
-import type { UserEditData, ContactEditData } from "@/components/admin-forms";
+import { ContactForm, ProductForm, UserForm, ContactEditForm, WarehouseForm } from "@/components/admin-forms";
+import type { UserEditData, ContactEditData, WarehouseEditData } from "@/components/admin-forms";
 
 interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; }
 interface Master {
@@ -18,7 +18,7 @@ interface Master {
     company_name: string | null; legal_type: string | null; account_phone: string | null; account_email: string | null;
     land_size_ha: string | number | null; current_crop: string | null; village: string | null;
   }[];
-  warehouses: { id: number; warehouse_name: string; region: string | null }[];
+  warehouses: { id: number; warehouse_name: string; location_type: string; region: string | null; is_active: number }[];
 }
 
 type IntegForm = {
@@ -33,7 +33,7 @@ type ApiInteg = {
 const EMPTY_INTEG: IntegForm = { wa: { token: "", sender: "" }, smtp: { host: "", port: "", user: "", from: "" } };
 
 export default function SettingsClient() {
-  const [tab, setTab] = React.useState<"integrasi" | "pengguna" | "kontak" | "produk" | "audit">("integrasi");
+  const [tab, setTab] = React.useState<"integrasi" | "pengguna" | "kontak" | "produk" | "gudang" | "audit">("integrasi");
   const [saved, setSaved] = React.useState<Record<string, boolean>>({});
   const [audits, setAudits] = React.useState<Audits[] | null>(null);
   const [master, setMaster] = React.useState<Master | null>(null);
@@ -42,8 +42,10 @@ export default function SettingsClient() {
   const [savingErr, setSavingErr] = React.useState<string | null>(null);
   const [editingUser, setEditingUser] = React.useState<UserEditData | null>(null);
   const [editingContact, setEditingContact] = React.useState<ContactEditData | null>(null);
+  const [editingWarehouse, setEditingWarehouse] = React.useState<WarehouseEditData | null>(null);
   const editUserRef = React.useRef<HTMLDivElement>(null);
   const editContactRef = React.useRef<HTMLDivElement>(null);
+  const editWarehouseRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (editingUser) editUserRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -52,6 +54,10 @@ export default function SettingsClient() {
   React.useEffect(() => {
     if (editingContact) editContactRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [editingContact]);
+
+  React.useEffect(() => {
+    if (editingWarehouse) editWarehouseRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [editingWarehouse]);
 
   const setInt = <K extends "wa" | "smtp">(section: K, key: keyof IntegForm[K], v: string) =>
     setInteg((s) => ({ ...s, [section]: { ...s[section], [key]: v } }));
@@ -78,6 +84,18 @@ export default function SettingsClient() {
     }
   };
 
+  const toggleWarehouse = async (w: WarehouseEditData) => {
+    try {
+      await apiFetcher(`/api/admin/warehouses/${w.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ warehouse_name: w.warehouse_name, location_type: w.location_type, region: w.region, is_active: w.is_active ? 0 : 1 }),
+      });
+      loadMaster();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
   const loadAudit = () => {
     apiFetcher<{ audits: Audits[] }>("/api/audit").then((r) => setAudits(r.audits)).catch(() => setAudits([]));
   };
@@ -96,7 +114,7 @@ export default function SettingsClient() {
   React.useEffect(() => {
     if (tab === "integrasi") loadIntegrasi();
     if (tab === "audit") loadAudit();
-    if (tab === "pengguna" || tab === "kontak" || tab === "produk") loadMaster();
+    if (tab === "pengguna" || tab === "kontak" || tab === "produk" || tab === "gudang") loadMaster();
   }, [tab]);
 
   const saveInteg = async (section: "wa" | "smtp") => {
@@ -139,6 +157,7 @@ export default function SettingsClient() {
           ["pengguna", Users, "Pengguna"],
           ["kontak", Contact, "Kontak"],
           ["produk", Boxes, "Produk"],
+          ["gudang", Warehouse, "Gudang"],
           ["audit", ScrollText, "Audit Log"],
         ] as const).map(([k, Icon, label]) => (
           <button
@@ -333,6 +352,62 @@ export default function SettingsClient() {
                     <Chip tone={p.is_active ? "green" : "slate"}>{p.is_active ? "Aktif" : "Nonaktif"}</Chip>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "gudang" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Warehouse className="h-4 w-4 text-agro" /> Tambah Gudang</div>
+            <WarehouseForm onDone={loadMaster} />
+          </div>
+
+          {editingWarehouse && (
+            <div ref={editWarehouseRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Pencil className="h-4 w-4 text-agro" /> Edit Gudang</div>
+              <WarehouseForm
+                key={editingWarehouse.id}
+                initial={editingWarehouse}
+                onCancel={() => setEditingWarehouse(null)}
+                onDone={() => { setEditingWarehouse(null); loadMaster(); }}
+              />
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Warehouse className="h-4 w-4 text-agro" /> Daftar Gudang</div>
+            {!master ? <div className="flex justify-center py-10"><Spinner /></div> : (
+              <div className="space-y-2">
+                {master.warehouses.map((w) => {
+                  const typeLabel = w.location_type === "hazmat" ? "HZM" : w.location_type === "equipment" ? "ALT" : "MIX";
+                  const typeTone = w.location_type === "hazmat" ? "red" : w.location_type === "equipment" ? "blue" : "green";
+                  return (
+                    <div key={w.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-agro text-[11px] font-bold text-white">
+                        <Warehouse className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-[180px] flex-1">
+                        <div className="text-sm font-semibold text-ink">{w.warehouse_name}</div>
+                        <div className="text-xs text-slate-500">{w.region ?? "Region belum diisi"}</div>
+                      </div>
+                      <Chip tone={typeTone}>{typeLabel}</Chip>
+                      <Chip tone={w.is_active ? "green" : "slate"}>{w.is_active ? "Aktif" : "Nonaktif"}</Chip>
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => setEditingWarehouse({ id: w.id, warehouse_name: w.warehouse_name, location_type: w.location_type, region: w.region, is_active: w.is_active })}
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => toggleWarehouse(w)}>
+                        {w.is_active ? "Nonaktifkan" : "Aktifkan"}
+                      </Button>
+                    </div>
+                  );
+                })}
+                {master.warehouses.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Belum ada gudang.</div>}
               </div>
             )}
           </div>

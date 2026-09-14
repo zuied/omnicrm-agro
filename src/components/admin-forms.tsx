@@ -474,6 +474,74 @@ export function UserForm({ initial, onDone, onCancel }: { initial?: UserEditData
   );
 }
 
+/* ============================== GUDANG ============================== */
+
+export interface WarehouseEditData {
+  id: number;
+  warehouse_name: string;
+  location_type: string;
+  region: string | null;
+  is_active: number;
+}
+
+const LOCATION_OPTIONS = [
+  { value: "mixed", label: "Campur (MIX) — bahan kimia + alat" },
+  { value: "hazmat", label: "Khusus Kimia (HZM)" },
+  { value: "equipment", label: "Khusus Alat (ALT)" },
+];
+
+export function WarehouseForm({ initial, onDone, onCancel }: { initial?: WarehouseEditData; onDone: () => void; onCancel?: () => void }) {
+  const isEdit = Boolean(initial);
+  const [warehouse_name, setWarehouse_name] = React.useState(initial?.warehouse_name ?? "");
+  const [location_type, setLocation_type] = React.useState(initial?.location_type ?? "mixed");
+  const [region, setRegion] = React.useState(initial?.region ?? "");
+  const [active, setActive] = React.useState(isEdit ? initial!.is_active === 1 : true);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [done, setDone] = React.useState(false);
+
+  const submit = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      const body = { warehouse_name, location_type, region, is_active: active };
+      await apiFetcher(
+        isEdit ? `/api/admin/warehouses/${initial!.id}` : "/api/admin/warehouses",
+        { method: isEdit ? "PUT" : "POST", body: JSON.stringify(body) }
+      );
+      setDone(true);
+      onDone();
+      setTimeout(() => setDone(false), 2200);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Txt label="Nama Gudang *" value={warehouse_name} onChange={setWarehouse_name} placeholder="Gudang Utama - Pekanbaru (PKU)" required />
+        <Txt label="Wilayah / Region" value={region} onChange={setRegion} placeholder="Riau, Jabar…" />
+        <Sel label="Tipe Gudang *" value={location_type} onChange={setLocation_type} options={LOCATION_OPTIONS} required />
+      </div>
+      <Toggle checked={active} onChange={setActive} label="Gudang aktif" />
+      <ErrorBox msg={error} />
+      {done && <div className="rounded-xl bg-agro-mist px-4 py-3 text-xs font-semibold text-agro">{isEdit ? "✓ Gudang berhasil diperbarui." : "✓ Gudang berhasil ditambahkan."}</div>}
+      <div className="flex gap-2">
+        <Button size="lg" className="flex-1" onClick={submit} loading={saving}>
+          {saving ? undefined : isEdit ? undefined : <PlusCircle className="h-4 w-4" />}
+          {isEdit ? "Simpan Perubahan" : "Simpan Gudang"}
+        </Button>
+        {isEdit && onCancel && (
+          <Button size="lg" variant="ghost" onClick={onCancel}>Batal</Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ============================== EDIT KONTAK ============================== */
 
 export interface ContactEditData {

@@ -25,7 +25,7 @@ export async function GET() {
        FROM b2c_profiles
        ORDER BY type, name`
     ),
-    query("SELECT id, warehouse_name, region FROM warehouses WHERE is_active = 1 ORDER BY warehouse_name"),
+    query("SELECT id, warehouse_name, location_type, region, is_active FROM warehouses ORDER BY is_active DESC, warehouse_name"),
   ]);
   return NextResponse.json({
     users,
