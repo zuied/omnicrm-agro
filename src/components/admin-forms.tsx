@@ -154,7 +154,86 @@ export function ContactForm({ onDone }: { onDone: () => void }) {
 /* ============================== PRODUK ============================== */
 
 interface Warehouse { id: number; warehouse_name: string; region: string | null; }
-interface ExistingProduct { id: number; product_name: string; category: string; is_active: number; }
+interface ExistingProduct { id: number; product_name: string; category: string; uom: string; manufacturer: string | null; requires_demplot: number; is_active: number; }
+
+function ProductCombobox({
+  products,
+  value,
+  onChange,
+  onPick,
+}: {
+  products: ExistingProduct[];
+  value: string;
+  onChange: (v: string) => void;
+  onPick: (p: ExistingProduct) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [highlight, setHighlight] = React.useState(0);
+  const boxRef = React.useRef<HTMLDivElement>(null);
+
+  const filtered = React.useMemo(
+    () => products.filter((p) => p.product_name.toLowerCase().includes(value.toLowerCase())),
+    [products, value]
+  );
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const pick = (p: ExistingProduct) => {
+    onPick(p);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={boxRef} className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); setHighlight(0); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && open && filtered.length > 0) {
+            e.preventDefault();
+            setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+          } else if (e.key === "ArrowUp" && open && filtered.length > 0) {
+            e.preventDefault();
+            setHighlight((h) => Math.max(h - 1, 0));
+          } else if (e.key === "Enter" && open && filtered.length > 0 && filtered[highlight]) {
+            e.preventDefault();
+            pick(filtered[highlight]);
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        placeholder="Ketik atau pilih dari daftar…"
+        required
+        className={inputCls}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+          {filtered.map((p, i) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); pick(p); }}
+                onMouseEnter={() => setHighlight(i)}
+                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-agro-mist ${i === highlight ? "bg-agro-mist" : ""}`}
+              >
+                <span className="truncate font-medium text-ink">{p.product_name}</span>
+                <span className="shrink-0 text-[11px] font-bold text-slate-400">{p.category === "agrochemical" ? "KIMIA" : "ALAT"}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function ProductForm({ warehouses, existingProducts = [], onDone }: { warehouses: Warehouse[]; existingProducts?: ExistingProduct[]; onDone: () => void }) {
   const [category, setCategory] = React.useState<"agrochemical" | "equipment">("agrochemical");
@@ -176,6 +255,16 @@ export function ProductForm({ warehouses, existingProducts = [], onDone }: { war
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
+  const [pickedExisting, setPickedExisting] = React.useState(false);
+
+  const applyExisting = (p: ExistingProduct) => {
+    setName(p.product_name);
+    setCategory(p.category === "equipment" ? "equipment" : "agrochemical");
+    setUom(p.uom);
+    setManufacturer(p.manufacturer ?? "");
+    setRequiresDemplot(p.requires_demplot === 1);
+    setPickedExisting(true);
+  };
 
   const submit = async () => {
     setError(null);
@@ -217,23 +306,8 @@ export function ProductForm({ warehouses, existingProducts = [], onDone }: { war
     }
   };
 
-  const uniqueProductNames = React.useMemo(() => {
-  const seen = new Set<string>();
-  return existingProducts.filter((p) => {
-    if (seen.has(p.product_name)) return false;
-    seen.add(p.product_name);
-    return true;
-  });
-}, [existingProducts]);
-
   return (
     <div className="space-y-3">
-      <datalist id="product-name-suggestions">
-        {uniqueProductNames.map((p) => (
-          <option key={p.id} value={p.product_name} />
-        ))}
-      </datalist>
-
       <div className="flex gap-1 rounded-xl bg-slate-200/70 p-1">
         {([
           ["agrochemical", "Kimia (Pupuk/Herbisida)"],
@@ -252,17 +326,19 @@ export function ProductForm({ warehouses, existingProducts = [], onDone }: { war
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Field label="Nama Produk *">
-            <input
-              list="product-name-suggestions"
-              type="text"
+            <ProductCombobox
+              products={existingProducts}
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ketik nama produk atau pilih dari daftar…"
-              required
-              className={inputCls}
+              onChange={(v) => { setName(v); setPickedExisting(false); }}
+              onPick={applyExisting}
             />
-            {name && uniqueProductNames.some((p) => p.product_name === name) && (
-              <span className="mt-1 block text-[11px] text-agro">Produk ini sudah ada — Anda sedang menambah varian baru.</span>
+            {pickedExisting && (
+              <span className="mt-1 block text-[11px] font-medium text-agro">
+                ✓ Data produk existing tersalin. Ubah SKU &amp; nama varian untuk stok/harga baru.
+              </span>
+            )}
+            {!pickedExisting && name && existingProducts.some((p) => p.product_name === name) && (
+              <span className="mt-1 block text-[11px] text-warning">Produk ini sudah ada — pilih dari dropdown untuk menyalin datanya.</span>
             )}
           </Field>
         </div>

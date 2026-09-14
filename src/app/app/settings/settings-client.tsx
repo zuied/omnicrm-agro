@@ -11,7 +11,7 @@ import type { UserEditData, ContactEditData } from "@/components/admin-forms";
 interface Audits { id: number; user_id: number | null; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; created_at: string; }
 interface Master {
   users: { id: number; full_name: string; email: string; role: string; phone: string | null; region: string | null; is_active: number }[];
-  products: { id: number; product_name: string; category: string; is_active: number }[];
+  products: { id: number; product_name: string; category: string; uom: string; manufacturer: string | null; requires_demplot: number; is_active: number }[];
   contacts: {
     id: number; account_id: number | null; name: string; job_title: string | null; whatsapp_number: string | null; email: string | null;
     type: "B2B" | "B2C"; region: string | null;

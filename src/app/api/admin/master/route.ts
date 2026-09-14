@@ -14,7 +14,7 @@ export async function GET() {
   }
   const [users, products, contacts, warehouses] = await Promise.all([
     query("SELECT id, full_name, email, role, phone, region, is_active FROM users ORDER BY role, full_name"),
-    query("SELECT id, product_name, category, is_active FROM products WHERE is_active = 1 ORDER BY product_name"),
+    query("SELECT id, product_name, category, uom, manufacturer, requires_demplot, is_active FROM products WHERE is_active = 1 ORDER BY product_name"),
     query(
       `SELECT c.id, c.account_id, c.first_name AS name, c.job_title, c.whatsapp_number, c.email, 'B2B' AS type, a.region,
               a.company_name, a.legal_type, a.phone AS account_phone, a.email AS account_email, NULL AS land_size_ha, NULL AS current_crop, NULL AS village
