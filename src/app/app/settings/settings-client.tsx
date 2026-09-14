@@ -422,7 +422,7 @@ export default function SettingsClient() {
           ) : (
             <div className="space-y-2">
               {audits.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-2.5">
+                <div key={a.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-mist px-4 py-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-corporate text-[10px] font-bold text-white">
                     {initials(a.full_name)}
                   </div>
@@ -431,12 +431,13 @@ export default function SettingsClient() {
                       <span className="text-sm font-bold text-ink">{ACTION_LABELS[a.action] ?? a.action}</span>
                       {a.entity_type && <Chip tone="slate">{entityChip(a)}</Chip>}
                     </div>
-                    <div className="mt-0.5 truncate text-xs text-slate-500">
+                    <div className="mt-1 text-xs leading-relaxed text-slate-500">
                       <span className="font-semibold text-slate-600">{a.full_name ?? "Sistem"}</span>
-                      {a.detailDisplay ? ` · ${a.detailDisplay}` : a.detail ? " · tanpa detail" : ""}
+                      {a.detailDisplay && <div className="mt-0.5 break-words">{a.detailDisplay}</div>}
                     </div>
+                    <div className="mt-1 block text-[11px] text-slate-400 sm:hidden">{formatDateTime(a.created_at)}</div>
                   </div>
-                  <div className="shrink-0 text-[11px] text-slate-400">{formatDateTime(a.created_at)}</div>
+                  <div className="hidden shrink-0 whitespace-nowrap text-[11px] text-slate-400 sm:block">{formatDateTime(a.created_at)}</div>
                 </div>
               ))}
             </div>
