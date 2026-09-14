@@ -16,6 +16,7 @@ interface DashData {
   deals: DealCard[];
   lowStock: { variant_name: string; warehouse_name: string; qty_available: number; qty_warning: number }[];
   pendingApprovals: number;
+  warehouseSummary: { id: number; warehouse_name: string; location_type: string; region: string | null; total_available: number; total_allocated: number; low_count: number }[];
 }
 
 export default function DashboardClient() {
@@ -37,6 +38,7 @@ export default function DashboardClient() {
           ownerPerformance: rep.ownerPerformance,
           deals: pipe.deals,
           lowStock: (inv.stocks ?? []).filter((s: any) => Number(s.qty_available) <= Number(s.qty_warning)),
+          warehouseSummary: (inv.warehouseSummary ?? []) as DashData["warehouseSummary"],
           pendingApprovals: (appr.approvals ?? []).filter((a: any) => a.status === "pending").length,
         });
       })
@@ -141,6 +143,52 @@ export default function DashboardClient() {
             <Link href="/app/demplot" className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Demplot</Link>
           </div>
         </div>
+      </div>
+
+      {/* Lokasi Gudang Aktif */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-ink">Lokasi Gudang Aktif</h2>
+          <Link href="/app/inventory" className="inline-flex items-center gap-1 text-xs font-bold text-agro">
+            <Warehouse className="h-3.5 w-3.5" /> Kelola Stok
+          </Link>
+        </div>
+        {(data?.warehouseSummary?.length ?? 0) === 0 ? (
+          <div className="rounded-xl bg-mist px-4 py-8 text-center text-sm text-slate-400">Belum ada gudang / stok tercatat.</div>
+        ) : (
+          <div className="space-y-2">
+            {data?.warehouseSummary.map((w) => {
+              const allocated = Number(w.total_allocated) > 0;
+              const typeLabel = w.location_type === "hazmat" ? "HZM" : w.location_type === "equipment" ? "ALT" : "MIX";
+              const typeColor = w.location_type === "hazmat" ? "bg-danger-mist text-danger" : w.location_type === "equipment" ? "bg-corporate-soft text-corporate" : "bg-agro-mist text-agro";
+              return (
+                <div key={w.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-mist px-3 py-2.5">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${typeColor}`}>
+                    {typeLabel}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                      <span className="truncate">{w.warehouse_name}</span>
+                      {allocated && (
+                        <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-bold text-warning">AKTIF</span>
+                      )}
+                      {Number(w.low_count) > 0 && (
+                        <span className="shrink-0 rounded-full bg-danger-mist px-2 py-0.5 text-[10px] font-bold text-danger">STOK MENIPIS</span>
+                      )}
+                    </div>
+                    <div className="truncate text-[11px] text-slate-500">{w.region ?? "Lokasi belum diisi"}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-ink">{Number(w.total_available).toLocaleString("id-ID")} <span className="text-[10px] font-medium text-slate-400">tersedia</span></div>
+                    <div className={`text-[11px] font-semibold ${allocated ? "text-warning" : "text-slate-400"}`}>
+                      {Number(w.total_allocated).toLocaleString("id-ID")} dialokasikan
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Deal terbaru */}

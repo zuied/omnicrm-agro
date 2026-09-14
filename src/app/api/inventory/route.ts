@@ -84,5 +84,22 @@ export async function GET(req: NextRequest) {
      WHERE s.qty_available <= s.qty_warning`
   );
 
-  return NextResponse.json({ warehouses, stocks, lowStockCount: Number(alerts[0]?.low ?? 0) });
+  const warehouseSummary = await query(`
+    SELECT w.id, w.warehouse_name, w.location_type, w.region,
+           COALESCE(SUM(s.qty_available), 0) AS total_available,
+           COALESCE(SUM(s.qty_allocated), 0) AS total_allocated,
+           SUM(CASE WHEN s.qty_available <= s.qty_warning THEN 1 ELSE 0 END) AS low_count
+    FROM warehouses w
+    LEFT JOIN inventory_stocks s ON s.warehouse_id = w.id
+    WHERE w.is_active = 1
+    GROUP BY w.id
+    ORDER BY total_allocated DESC, total_available DESC, w.warehouse_name
+  `);
+
+  return NextResponse.json({
+    warehouses,
+    stocks,
+    lowStockCount: Number(alerts[0]?.low ?? 0),
+    warehouseSummary,
+  });
 }
