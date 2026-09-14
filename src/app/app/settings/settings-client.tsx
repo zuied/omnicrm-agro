@@ -15,11 +15,28 @@ interface Master {
   warehouses: { id: number; warehouse_name: string; region: string | null }[];
 }
 
+type IntegForm = {
+  wa: { token: string; sender: string };
+  smtp: { host: string; port: string; user: string; from: string };
+};
+type ApiInteg = {
+  wa: { token: string | null; tokenSet: boolean; sender: string };
+  smtp: { host: string; port: string; user: string | null; userSet: boolean; from: string };
+};
+
+const EMPTY_INTEG: IntegForm = { wa: { token: "", sender: "" }, smtp: { host: "", port: "", user: "", from: "" } };
+
 export default function SettingsClient() {
   const [tab, setTab] = React.useState<"integrasi" | "pengguna" | "kontak" | "produk" | "audit">("integrasi");
   const [saved, setSaved] = React.useState<Record<string, boolean>>({});
   const [audits, setAudits] = React.useState<Audits[] | null>(null);
   const [master, setMaster] = React.useState<Master | null>(null);
+  const [integ, setInteg] = React.useState<IntegForm>(EMPTY_INTEG);
+  const [integFlags, setIntegFlags] = React.useState({ waSet: false, smtpSet: false });
+  const [savingErr, setSavingErr] = React.useState<string | null>(null);
+
+  const setInt = <K extends "wa" | "smtp">(section: K, key: keyof IntegForm[K], v: string) =>
+    setInteg((s) => ({ ...s, [section]: { ...s[section], [key]: v } }));
 
   const loadAudit = () => {
     apiFetcher<{ audits: Audits[] }>("/api/audit").then((r) => setAudits(r.audits)).catch(() => setAudits([]));
@@ -27,16 +44,44 @@ export default function SettingsClient() {
   const loadMaster = () => {
     apiFetcher<Master>("/api/admin/master").then(setMaster).catch(() => setMaster({ users: [], products: [], contacts: [], warehouses: [] }));
   };
+  const loadIntegrasi = () => {
+    apiFetcher<ApiInteg>("/api/settings")
+      .then((r) => {
+        setInteg({ wa: { token: "", sender: r.wa.sender }, smtp: { host: r.smtp.host, port: r.smtp.port, user: "", from: r.smtp.from } });
+        setIntegFlags({ waSet: r.wa.tokenSet, smtpSet: r.smtp.userSet });
+      })
+      .catch(() => setIntegFlags({ waSet: false, smtpSet: false }));
+  };
 
   React.useEffect(() => {
+    if (tab === "integrasi") loadIntegrasi();
     if (tab === "audit") loadAudit();
     if (tab === "pengguna" || tab === "kontak" || tab === "produk") loadMaster();
   }, [tab]);
 
-  const save = async (key: string) => {
-    await new Promise((r) => setTimeout(r, 300));
-    setSaved((s) => ({ ...s, [key]: true }));
-    setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), 1800);
+  const saveInteg = async (section: "wa" | "smtp") => {
+    setSavingErr(null);
+    const flagKey = section === "wa" ? "waSet" : "smtpSet";
+    try {
+      const payload =
+        section === "wa"
+          ? { wa: { token: integ.wa.token, sender: integ.wa.sender } }
+          : { smtp: { host: integ.smtp.host, port: integ.smtp.port, user: integ.smtp.user, from: integ.smtp.from } };
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Gagal menyimpan konfigurasi.");
+      setSaved((s) => ({ ...s, [section]: true }));
+      setIntegFlags((f) => ({ ...f, [flagKey]: true }));
+      if (section === "wa") setInteg((s) => ({ ...s, wa: { ...s.wa, token: "" } }));
+      else setInteg((s) => ({ ...s, smtp: { ...s.smtp, user: "" } }));
+      setTimeout(() => setSaved((s) => ({ ...s, [section]: false })), 1800);
+    } catch (err) {
+      setSavingErr((err as Error).message);
+    }
   };
 
   return (
@@ -68,6 +113,10 @@ export default function SettingsClient() {
 
       {tab === "integrasi" && (
         <div className="space-y-4">
+          {savingErr && (
+            <div className="rounded-xl bg-danger-mist px-4 py-3 text-sm font-medium text-danger">{savingErr}</div>
+          )}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-agro-mist text-agro"><UserCog className="h-5 w-5" /></div>
@@ -75,13 +124,15 @@ export default function SettingsClient() {
                 <div className="font-bold text-ink">WhatsApp Business API</div>
                 <div className="text-xs text-slate-500">Pesan otomasi approval &amp; notifikasi agen</div>
               </div>
-              <Chip tone="green">Terhubung (simulasi)</Chip>
+              <Chip tone={integFlags.waSet && integ.wa.sender ? "green" : "slate"}>
+                {integFlags.waSet && integ.wa.sender ? "Terhubung" : "Belum dikonfigurasi"}
+              </Chip>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <Field label="Token API" placeholder="xxxxxx (stub)" />
-              <Field label="Nomor Sender" placeholder="+62811xxxxxx" />
+              <Field label="Token API" placeholder="xxxxxx" type="password" value={integ.wa.token} onChange={(v) => setInt("wa", "token", v)} note={integFlags.waSet ? "Terpasang" : undefined} />
+              <Field label="Nomor Sender" placeholder="+62811xxxxxx" type="tel" value={integ.wa.sender} onChange={(v) => setInt("wa", "sender", v)} />
             </div>
-            <Button className="mt-3" onClick={() => save("wa")}>{saved.wa ? "Tersimpan ✓" : "Simpan Konfigurasi"}</Button>
+            <Button className="mt-3" onClick={() => saveInteg("wa")}>{saved.wa ? "Tersimpan ✓" : "Simpan Konfigurasi"}</Button>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -91,13 +142,17 @@ export default function SettingsClient() {
                 <div className="font-bold text-ink">SMTP / Email API</div>
                 <div className="text-xs text-slate-500">Kanal pemasaran email musiman</div>
               </div>
-              <Chip tone="slate">Belum dikonfigurasi</Chip>
+              <Chip tone={integFlags.smtpSet && integ.smtp.host ? "green" : "slate"}>
+                {integFlags.smtpSet && integ.smtp.host ? "Terhubung" : "Belum dikonfigurasi"}
+              </Chip>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <Field label="SMTP Host" placeholder="smtp.example.com" />
-              <Field label="Port" placeholder="587" />
+              <Field label="SMTP Host" placeholder="smtp.example.com" value={integ.smtp.host} onChange={(v) => setInt("smtp", "host", v)} />
+              <Field label="Port" placeholder="587" type="number" value={integ.smtp.port} onChange={(v) => setInt("smtp", "port", v)} />
+              <Field label="Username" placeholder="user@example.com" type="password" value={integ.smtp.user} onChange={(v) => setInt("smtp", "user", v)} note={integFlags.smtpSet ? "Terpasang" : undefined} />
+              <Field label="Alias Pengirim" placeholder="OmniCRM Agro <agro@domain.id>" value={integ.smtp.from} onChange={(v) => setInt("smtp", "from", v)} />
             </div>
-            <Button className="mt-3" onClick={() => save("smtp")}>{saved.smtp ? "Tersimpan ✓" : "Simpan Konfigurasi"}</Button>
+            <Button className="mt-3" onClick={() => saveInteg("smtp")}>{saved.smtp ? "Tersimpan ✓" : "Simpan Konfigurasi"}</Button>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -217,11 +272,34 @@ export default function SettingsClient() {
   );
 }
 
-function Field({ label, placeholder }: { label: string; placeholder: string }) {
+function Field({
+  label,
+  placeholder,
+  type = "text",
+  value,
+  onChange,
+  note,
+}: {
+  label: string;
+  placeholder?: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
+  note?: string;
+}) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
-      <input placeholder={placeholder} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+      <span className="mb-1 flex items-center justify-between text-sm font-medium text-ink">
+        <span>{label}</span>
+        {note && <span className="text-[11px] font-normal text-agro">{note}</span>}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+      />
     </label>
   );
 }
