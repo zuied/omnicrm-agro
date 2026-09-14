@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 
 // Keep-alive untuk Aiven free tier (service tidur saat idle).
 // Berjalan otomatis setiap 15 menit lewat Netlify Scheduled Functions.
-export default async () => {
+const handler = async () => {
   const sslMode = process.env.DB_SSL === "1" || process.env.DB_SSL === "true";
   let state = "skipped";
   let detail = "";
@@ -30,6 +30,8 @@ export default async () => {
     body: JSON.stringify({ keepalive: state, detail, at: new Date().toISOString() }),
   };
 };
+
+export default handler;
 
 export const config = {
   schedule: "*/15 * * * *",

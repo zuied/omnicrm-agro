@@ -2,14 +2,8 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Leaf, LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Leaf, LogIn, Eye, EyeOff } from "lucide-react";
 import { Button, Field, Spinner } from "@/components/ui";
-
-const DEMO_ACCOUNTS = [
-  { label: "Agent (Ahmad Suhendra)", email: "agent@omnicrm.id", pass: "agent123" },
-  { label: "Manager (Budi Santoso)", email: "manager@omnicrm.id", pass: "manager123" },
-  { label: "Admin", email: "admin@omnicrm.id", pass: "admin123" },
-];
 
 export default function LoginForm() {
   const router = useRouter();
@@ -38,12 +32,6 @@ export default function LoginForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fill = (em: string, pw: string) => {
-    setEmail(em);
-    setPassword(pw);
-    setError(null);
   };
 
   return (
@@ -98,24 +86,6 @@ export default function LoginForm() {
               Masuk
             </Button>
           </form>
-
-          <div className="mt-6 border-t border-slate-100 pt-5">
-            <div className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              <ShieldCheck className="h-3.5 w-3.5" /> Akun demo UAT
-            </div>
-            <div className="space-y-2">
-              {DEMO_ACCOUNTS.map((a) => (
-                <button
-                  key={a.email}
-                  onClick={() => fill(a.email, a.pass)}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-mist px-3 py-2.5 text-left text-xs transition hover:border-agro/40 hover:bg-agro-mist"
-                >
-                  <span className="font-semibold text-ink">{a.label}</span>
-                  <span className="text-slate-500">{a.email.split("@")[0]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-white/60">
