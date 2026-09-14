@@ -4,7 +4,8 @@
 | Atribut | Detail |
 | :--- | :--- |
 | **Nama Produk** | OmniCRM - Agro & Equipment Edition |
-| **Versi Dokumen** | 2.0 - Revisi Komprehensif (Master Document) |
+| **Versi Dokumen** | 2.1 - Pembaruan Aturan Approval & Konfigurasi |
+| **Pembaruan Terakhir** | 14 September 2026 |
 | **Fase Rilis** | Fase 1 - Hybrid MVP (Web responsif, optimal di browser HP Android) |
 | **Model Bisnis** | B2B (Distributor/Kios/Perkebunan) & B2C (Petani/End-user) |
 | **Vertikal Industri** | Agrokimia (Pupuk/Herbisida) & Alat Pertanian/Perkebunan |
@@ -53,13 +54,19 @@ Operasional distribusi komoditas pertanian dan alat perkebunan saat ini melayani
 | Detail Deal & Timeline | Data sendiri | Semua | Semua | Semua |
 | Foto/Dok. Demplot (upload) | Ya | Ya | Ya | Ya |
 | Inventori (cek & kunci stok) | Ya | Ya | Ya | Ya |
-| Pengajuan Diskon >5% | Ya (trigger) | Approve | Approve tier HOS | Approve |
+| Pengajuan Diskon >5% | Ya (trigger) | Approve tier manager (5,1–15%) | Approve tier HOS (>15%) | Approve (kedua tier) |
 | Shared Inbox WhatsApp | Ya | Ya | Ya | Ya |
 | Laporan & Performa | Data sendiri | Semua | Semua | Semua |
 | Konfigurasi CRM (users/produk/gudang) | - | - | - | Ya |
 | Audit Log | - | - | - | Ya |
 
 > Catatan: Agent selalu dibatasi otomatis ke data miliknya sendiri (force-scope di API), apa pun filter yang dioper.
+>
+> **Aturan review berjenjang v2.1:** Persetujuan diskon di-review **sesuai tier**, dan dipaksa di sisi server (bukan hanya UI):
+> - Tier *manager* (5,1–15%) → hanya **Sales Manager** atau **Admin** yang boleh menyetujui/menolak.
+> - Tier *hos* (>15%) → hanya **Head of Sales** atau **Admin** yang boleh menyetujui/menolak.
+> - Upaya review di luar tier akan **ditolak sistem** (HTTP 400) dan tidak mengubah status approval.
+> - Tombol Setujui/Tolak di halaman Persetujuan hanya tampil untuk pengguna yang berwenang.
 
 ---
 
@@ -80,7 +87,7 @@ Sistem memakai **satu papan pipeline** yang menampung kanal B2B dan B2C. Di desk
 
 ### 3.2 Aturan Bisnis (Business Rules)
 - **Alokasi stok:** Saat deal masuk tahap negosiasi akhir/PO Verification atau stok dikunci manual, kuantitas dipindah ke `qty_allocated` (maks. 3x24 jam, lalu kembali otomatis ke `qty_available`).
-- **Diskon:** ≤5% otomatis (agen); 5,1–15% ke Sales Manager; >15% ke HOS. Apabila melebihi kewenangan, deal dikunci ke *Pending Approval*.
+- **Diskon:** ≤5% otomatis (agen); 5,1–15% ke Sales Manager; >15% ke HOS. Review dikunci sesuai tier (Manager/Admin untuk ≤15%; HOS/Admin untuk >15%). Apabila melebihi kewenangan, deal dikunci ke *Pending Approval*.
 - **Closed Won saat approval menunggu:** Terkunci — tombol proses/faktur *disabled* hingga status approval `approved`.
 - **Pemotongan stok:** Hanya terjadi saat deal masuk *Closed Won* (final), satu kali, transaksional.
 - **Lompat tahap:** Agen dapat memindahkan deal beberapa tahap sekaligus (mis. Prospecting → Quotation & Negotiation) dengan satu aksi, kecuali menuju *Pending Approval* dan *Closed Lost* (diakses via alur spesifik) dan *Closed Won* yang wajib lewat konfirmasi (memotong stok) dengan approval disetujui.
@@ -110,10 +117,13 @@ Sistem memakai **satu papan pipeline** yang menampung kanal B2B dan B2C. Di desk
 | Tier Diskon | Penyetuju | Mekanisme |
 | :--- | :--- | :--- |
 | ≤ 5% | - (otomatis) | Tanpa approval; `discount_status = auto` |
-| 5,1 – 15% | Sales Manager | Generates token; notifikasi WA deep-link berisi tautan approve/resolve |
-| > 15% | Head of Sales | Tier HOS; tautan token yang sama diarahkan ke HOS |
+| 5,1 – 15% | Sales Manager (atau Admin) | Generates token; notifikasi WA deep-link berisi tautan approve/reject |
+| > 15% | Head of Sales (atau Admin) | Tier HOS; tautan token yang sama diarahkan ke HOS |
 
 - Tautan persetujuan: **single-use token** (halaman publik `/approve/[token]`) yang aman, tidak perlu login; berisi ringkasan transaksi finansial.
+- **Enforcement tier (v2.1):** `approve()` memvalidasi `reviewerRole` terhadap tier approval sebelum transaksi berjalan. Tier `manager` → hanya `manager`/`admin`; tier `hos` → hanya `hos`/`admin`. Pelanggaran ditolak dengan pesan jelas dan **tanpa mengubah status approval**.
+- Token deep-link otomatis menetapkan identitas reviewer mengikuti tier (Sales Manager / Head of Sales) untuk akurasi Audit Log.
+- Notifikasi WA & pesan status pengajuan menyesuaikan tujuan: "Sales Manager (Otomasi WA)" untuk ≤15%, "Head of Sales (Otomasi WA)" untuk >15%.
 - Aksi Approve → deal maju ke *PO Verification*; Reject → kembali ke *Quotation & Negotiation*.
 - Status diskon: `none | auto | pending | approved | rejected`.
 
@@ -121,6 +131,7 @@ Sistem memakai **satu papan pipeline** yang menampung kanal B2B dan B2C. Di desk
 - Master warehouse (nama & tipe lokasi); stok per varian produk (`qty_available`, `qty_allocated`).
 - Klasifikasi gudang: Hazmat/Kimia (kedaluwarsa, keamanan tinggi) dan Gudang Alat (garansi).
 - Aksi **Kunci Stok** memindahkan kuantitas ke `qty_allocated` dan memangkas `qty_available` pusat secara real-time; kadaluwarsa otomatis 3x24 jam.
+- **Restok Barang Masuk (admin-only, v2.1):** form di halaman Inventaris untuk menerima barang masuk. Aturan kunci: SKU + gudang yang sama **tidak diduplikat** — kuantitas **ditambahkan** ke stok yang ada; perubahan harga hanya terjadi bila admin mencentang opsi "Ubah harga". SKU/gudang baru → baris stok baru. Semua transaksi tercatat sebagai Audit `STOCK_IN` (varian, gudang, qty, harga lama → baru).
 
 ### 4.6 Shared Inbox WhatsApp
 - Daftar percakapan kontak/pelanggan tersentral.
@@ -136,7 +147,16 @@ Sistem memakai **satu papan pipeline** yang menampung kanal B2B dan B2C. Di desk
 
 ### 4.8 Konfigurasi CRM & Keamanan
 - Admin: kelola pengguna (4 role, aktivasi), master produk/varians, warehouse.
-- **Audit log** (admin-only) mencatat event login, perubahan deal, approval, dan konfigurasi.
+- **Pusat Konfigurasi (Settings, admin-only)** dengan tab:
+  - **Pengguna:** tambah/edit akun (nama, email, role, region, WhatsApp, reset password), aktif/nonaktif; proteksi self-lockout (admin tidak bisa menonaktifkan dirinya).
+  - **Kontak:** tambah/edit/hapus profil B2B & B2C.
+  - **Produk:** tambah produk; nama produk memakai **combobox autocomplete** — memilih produk lama otomatis menyalin kategori/UOM/manufaktur/kebutuhan demplot.
+  - **Gudang:** tambah/edit/nonaktifkan gudang + tipe lokasi (MIX/HZM/ALT) + region.
+  - **Integrasi:** kredensial WhatsApp Business API, SMTP, preset Cloudinary (disimpan di `system_settings`).
+  - **Audit Log:** daftar aktivitas terbaru (60 baris) dengan nama pelaku, aksi berlabel ramah-baca, detail terformat (nama produk/gudang, perubahan harga Rp), dan timestamp.
+- **Sidebar "Lokasi Aktif":** menampilkan `region` pengguna dari JWT (ditentukan admin); menampilkan "Belum diatur admin" bila kosong. Perubahan mengharuskan pengguna login ulang.
+- **Restok Barang Masuk & seluruh API admin** diverifikasi `role === "admin"` di sisi server.
+- **Audit log** (admin-only) mencatat event login, perubahan deal, approval, konfigurasi, manajemen data, dan restok; API menerjemahkan ID → nama nyata untuk keterbacaan.
 - Session JWT HttpOnly + cookie; akses API diverifikasi per-role.
 
 ---
@@ -375,5 +395,19 @@ Sistem memakai **satu papan pipeline** yang menampung kanal B2B dan B2C. Di desk
 | UAT-CFG-02 | Admin ubah user/produk/gudang | Perubahan tersimpan; tercatat di audit log. |
 
 ---
+
+---
+
+## 10. Riwayat Versi (Changelog)
+
+### v2.1 — 14 September 2026
+- **Approval diskon berjenjang diperketat:** review dikunci sesuai tier di sisi server. Tier `manager` → Sales Manager/Admin; tier `hos` → HOS/Admin. Notifikasi WA & identitas reviewer token menyesuaikan tier.
+- **Fitur Restok Barang Masuk** (admin-only): stok masuk per SKU+gudang tanpa duplikasi; opsi perubahan harga; Audit `STOCK_IN`.
+- **Pusat Konfigurasi (Settings) diperluas:** tab Pengguna (CRUD + aktivasi + self-lockout), Kontak B2B/B2C (CRUD), Produk (combobox autofill), Gudang (CRUD + aktivasi), Integrasi, Audit Log (pelaku + detail terformat).
+- **Audit Log dibaca-manusiawi:** label aksi Bahasa Indonesia, nama pelaku, ID diterjemahkan menjadi nama (produk/gudang/deal/kontak), harga format Rp, baris tanpa potongan (`truncate` dihapus).
+- **Sidebar "Lokasi Aktif" dinamis** dari `region` JWT pengguna (kelola saat edit akun).
+
+### v2.0 — September 2026
+- Pembahasan komprehensif awal: modul CRM lengkap (pipeline, deal, approval token, inventori multi-gudang, inbox WA, laporan, konfigurasi) sesuai spesifikasi di dokumen ini.
 
 *— End of Document —*
