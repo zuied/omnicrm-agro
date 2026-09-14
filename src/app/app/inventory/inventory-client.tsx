@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Search, Warehouse, FlaskConical, Wrench, MapPin, AlertTriangle, Package, CalendarClock } from "lucide-react";
+import { Search, Warehouse, FlaskConical, Wrench, MapPin, AlertTriangle, Package, CalendarClock, PackagePlus, X } from "lucide-react";
 import { apiFetcher } from "@/lib/types";
 import { formatIDR, formatDate } from "@/lib/format";
 import { Button, EmptyState, Spinner, Chip } from "@/components/ui";
@@ -24,13 +24,71 @@ interface Stock {
   qty_warning: number;
 }
 
-export default function InventoryClient() {
+export default function InventoryClient({ isAdmin = false }: { isAdmin?: boolean }) {
   const [warehouses, setWarehouses] = React.useState<{ id: number; warehouse_name: string }[]>([]);
   const [stocks, setStocks] = React.useState<Stock[] | null>(null);
   const [warehouse, setWarehouse] = React.useState<number | null>(null);
   const [q, setQ] = React.useState("");
   const [category, setCategory] = React.useState<string>("all");
   const [lowCount, setLowCount] = React.useState(0);
+
+  const [restockOpen, setRestockOpen] = React.useState(false);
+  const [restockVariants, setRestockVariants] = React.useState<{ variant_id: number; variant_name: string; sku: string; price: number; product_name: string; uom: string }[]>([]);
+  const [rVariantId, setRVariantId] = React.useState("");
+  const [rWarehouseId, setRWarehouseId] = React.useState("");
+  const [rQty, setRQty] = React.useState("");
+  const [rUpdatePrice, setRUpdatePrice] = React.useState(false);
+  const [rNewPrice, setRNewPrice] = React.useState("");
+  const [restockErr, setRestockErr] = React.useState<string | null>(null);
+  const [restockMsg, setRestockMsg] = React.useState<string | null>(null);
+  const [restockSaving, setRestockSaving] = React.useState(false);
+
+  const openRestock = async () => {
+    setRestockOpen(true);
+    setRestockErr(null);
+    setRestockMsg(null);
+    setRUpdatePrice(false);
+    setRNewPrice("");
+    try {
+      const r = await apiFetcher<{ variants: typeof restockVariants; warehouses: { id: number; warehouse_name: string }[] }>("/api/admin/restock");
+      setRestockVariants(r.variants);
+      if (r.warehouses.length === 1) setRWarehouseId(String(r.warehouses[0].id));
+      if (r.variants.length) setRVariantId(String(r.variants[0].variant_id));
+    } catch (e) {
+      setRestockErr((e as Error).message);
+    }
+  };
+
+  const pickVariant = (id: string) => {
+    setRVariantId(id);
+    const v = restockVariants.find((x) => x.variant_id === Number(id));
+    if (v) setRNewPrice(String(v.price));
+  };
+
+  const submitRestock = async () => {
+    setRestockErr(null);
+    setRestockMsg(null);
+    setRestockSaving(true);
+    try {
+      const r = await apiFetcher<{ ok: boolean; qty_available: number; price: number }>("/api/admin/restock", {
+        method: "POST",
+        body: JSON.stringify({
+          variant_id: Number(rVariantId),
+          warehouse_id: Number(rWarehouseId),
+          qty: Number(rQty),
+          update_price: rUpdatePrice,
+          new_price: rUpdatePrice ? Number(rNewPrice) : null,
+        }),
+      });
+      setRestockMsg(`✓ Stok berhasil dimasukkan. Tersedia sekarang: ${r.qty_available} unit.`);
+      load(warehouse, q, category);
+      setTimeout(() => { setRestockOpen(false); setRestockMsg(null); }, 1800);
+    } catch (e) {
+      setRestockErr((e as Error).message);
+    } finally {
+      setRestockSaving(false);
+    }
+  };
 
   const load = React.useCallback(async (wh: number | null, query: string, cat: string) => {
     const sp = new URLSearchParams();
@@ -74,6 +132,11 @@ export default function InventoryClient() {
           <span className="flex items-center gap-1 rounded-xl bg-warning-soft px-3 py-2 text-xs font-bold text-warning">
             <AlertTriangle className="h-4 w-4" /> {lowCount} SKU stok menipis
           </span>
+        )}
+        {isAdmin && (
+          <Button size="md" onClick={openRestock} className="shrink-0">
+            <PackagePlus className="h-4 w-4" /> Restok Barang Masuk
+          </Button>
         )}
       </div>
 
@@ -214,6 +277,105 @@ export default function InventoryClient() {
           <Button variant="secondary" className="shrink-0"><Package className="h-4 w-4" /> Ke pipeline</Button>
         </Link>
       </div>
+
+      {/* Modal Restok */}
+      {restockOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setRestockOpen(false)}>
+          <div
+            className="w-full max-w-lg rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-bold text-ink">
+                <PackagePlus className="h-4 w-4 text-agro" /> Restok Barang Masuk
+              </div>
+              <button onClick={() => setRestockOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <div className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Pilih Varian Produk *</div>
+                <select
+                  value={rVariantId}
+                  onChange={(e) => pickVariant(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm"
+                >
+                  <option value="">— pilih —</option>
+                  {restockVariants.map((v) => (
+                    <option key={v.variant_id} value={v.variant_id}>
+                      {v.product_name} — {v.variant_name} ({v.sku}) @ {formatIDR(v.price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Pilih Gudang *</div>
+                <select
+                  value={rWarehouseId}
+                  onChange={(e) => setRWarehouseId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm"
+                >
+                  <option value="">— pilih —</option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.warehouse_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Jumlah Masuk *</div>
+                <input
+                  type="number"
+                  min={1}
+                  value={rQty}
+                  onChange={(e) => setRQty(e.target.value)}
+                  placeholder="Contoh: 50"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                />
+              </div>
+
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-mist px-3 py-2.5 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={rUpdatePrice}
+                  onChange={(e) => setRUpdatePrice(e.target.checked)}
+                  className="h-4 w-4 accent-agro"
+                />
+                <span>Ubah harga varian ini?</span>
+              </label>
+
+              {rUpdatePrice && (
+                <div>
+                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Harga Baru (Rp) *</div>
+                  <input
+                    type="number"
+                    min={0}
+                    value={rNewPrice}
+                    onChange={(e) => setRNewPrice(e.target.value)}
+                    placeholder="Contoh: 685000"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                  />
+                </div>
+              )}
+
+              <p className="rounded-lg bg-slate-100 px-3 py-2 text-[11px] text-slate-500">
+                SKU + gudang yang sama tidak diduplikat — jumlahnya akan <b>ditambahkan</b> ke stok yang ada. Harga hanya berubah jika kamu centang kotak di atas.
+              </p>
+
+              {restockErr && <div className="rounded-xl bg-danger-mist px-4 py-3 text-xs font-medium text-danger">{restockErr}</div>}
+              {restockMsg && <div className="rounded-xl bg-agro-mist px-4 py-3 text-xs font-semibold text-agro">{restockMsg}</div>}
+
+              <Button size="lg" className="w-full" loading={restockSaving} onClick={submitRestock}>
+                {restockSaving ? undefined : <PackagePlus className="h-4 w-4" />}
+                Simpan Stok Masuk
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
