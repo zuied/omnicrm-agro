@@ -42,6 +42,16 @@ export default function SettingsClient() {
   const [savingErr, setSavingErr] = React.useState<string | null>(null);
   const [editingUser, setEditingUser] = React.useState<UserEditData | null>(null);
   const [editingContact, setEditingContact] = React.useState<ContactEditData | null>(null);
+  const editUserRef = React.useRef<HTMLDivElement>(null);
+  const editContactRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (editingUser) editUserRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [editingUser]);
+
+  React.useEffect(() => {
+    if (editingContact) editContactRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [editingContact]);
 
   const setInt = <K extends "wa" | "smtp">(section: K, key: keyof IntegForm[K], v: string) =>
     setInteg((s) => ({ ...s, [section]: { ...s[section], [key]: v } }));
@@ -238,7 +248,7 @@ export default function SettingsClient() {
           </div>
 
           {editingUser && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div ref={editUserRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Pencil className="h-4 w-4 text-corporate" /> Edit Akun</div>
               <UserForm
                 key={editingUser.id}
@@ -259,7 +269,7 @@ export default function SettingsClient() {
           </div>
 
           {editingContact && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div ref={editContactRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Pencil className="h-4 w-4 text-agro" /> Edit Kontak</div>
               <ContactEditForm
                 key={`${editingContact.type}-${editingContact.id}`}
