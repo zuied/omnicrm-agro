@@ -7,6 +7,28 @@ import path from "node:path";
 
 const MAX_BYTES = 500 * 1024; // UAT: foto final <= 500KB
 
+/** Upload ke Cloudinary (unsigned preset). Kembali null jika env belum di-set. */
+async function uploadToCloudinary(buf: Buffer): Promise<string | null> {
+  const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+  const preset = process.env.CLOUDINARY_UPLOAD_PRESET;
+  if (!cloud || !preset) return null;
+
+  const form = new FormData();
+  form.append("file", new Blob([new Uint8Array(buf)], { type: "image/jpeg" }), "demplot.jpg");
+  form.append("upload_preset", preset);
+  if (process.env.CLOUDINARY_FOLDER) form.append("folder", process.env.CLOUDINARY_FOLDER);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/upload`, {
+    method: "POST",
+    body: form,
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.secure_url) {
+    throw new Error(json?.error?.message ?? `Upload Cloudinary gagal (HTTP ${res.status}).`);
+  }
+  return json.secure_url as string;
+}
+
 export async function POST(req: NextRequest) {
   const user = await getSession();
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -38,13 +60,19 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const ext = match[1] === "image/png" ? "png" : "jpg";
-  const fileName = `demplot-${dealId}-${Date.now()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads", "demplot");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, fileName), buf);
-
-  const url = `/uploads/demplot/${fileName}`;
+  // Cloudinary tersedia → simpan di cloud; selain itu fallback filesystem (dev lokal).
+  const remoteUrl = await uploadToCloudinary(buf);
+  let url: string;
+  if (remoteUrl) {
+    url = remoteUrl;
+  } else {
+    const ext = match[1] === "image/png" ? "png" : "jpg";
+    const fileName = `demplot-${dealId}-${Date.now()}.${ext}`;
+    const dir = path.join(process.cwd(), "public", "uploads", "demplot");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, fileName), buf);
+    url = `/uploads/demplot/${fileName}`;
+  }
   const caption = body.caption ?? null;
   const geoNote = body.geo ? ` (lat: ${body.geo.latitude}, lng: ${body.geo.longitude})` : "";
 
