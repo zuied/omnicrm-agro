@@ -316,7 +316,7 @@ export default function SettingsClient() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Boxes className="h-4 w-4 text-agro" /> Tambah Produk</div>
-            <ProductForm warehouses={master?.warehouses ?? []} onDone={loadMaster} />
+            <ProductForm warehouses={master?.warehouses ?? []} existingProducts={master?.products ?? []} onDone={loadMaster} />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

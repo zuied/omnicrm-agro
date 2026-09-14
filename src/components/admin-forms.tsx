@@ -154,8 +154,9 @@ export function ContactForm({ onDone }: { onDone: () => void }) {
 /* ============================== PRODUK ============================== */
 
 interface Warehouse { id: number; warehouse_name: string; region: string | null; }
+interface ExistingProduct { id: number; product_name: string; category: string; is_active: number; }
 
-export function ProductForm({ warehouses, onDone }: { warehouses: Warehouse[]; onDone: () => void }) {
+export function ProductForm({ warehouses, existingProducts = [], onDone }: { warehouses: Warehouse[]; existingProducts?: ExistingProduct[]; onDone: () => void }) {
   const [category, setCategory] = React.useState<"agrochemical" | "equipment">("agrochemical");
   const [name, setName] = React.useState("");
   const [uom, setUom] = React.useState("Pcs");
@@ -216,8 +217,23 @@ export function ProductForm({ warehouses, onDone }: { warehouses: Warehouse[]; o
     }
   };
 
+  const uniqueProductNames = React.useMemo(() => {
+  const seen = new Set<string>();
+  return existingProducts.filter((p) => {
+    if (seen.has(p.product_name)) return false;
+    seen.add(p.product_name);
+    return true;
+  });
+}, [existingProducts]);
+
   return (
     <div className="space-y-3">
+      <datalist id="product-name-suggestions">
+        {uniqueProductNames.map((p) => (
+          <option key={p.id} value={p.product_name} />
+        ))}
+      </datalist>
+
       <div className="flex gap-1 rounded-xl bg-slate-200/70 p-1">
         {([
           ["agrochemical", "Kimia (Pupuk/Herbisida)"],
@@ -234,7 +250,22 @@ export function ProductForm({ warehouses, onDone }: { warehouses: Warehouse[]; o
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Txt label="Nama Produk *" value={name} onChange={setName} placeholder="Mis. Herbisida Roundup 486SL" required />
+        <div className="sm:col-span-2">
+          <Field label="Nama Produk *">
+            <input
+              list="product-name-suggestions"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ketik nama produk atau pilih dari daftar…"
+              required
+              className={inputCls}
+            />
+            {name && uniqueProductNames.some((p) => p.product_name === name) && (
+              <span className="mt-1 block text-[11px] text-agro">Produk ini sudah ada — Anda sedang menambah varian baru.</span>
+            )}
+          </Field>
+        </div>
         <Txt label="SKU *" value={sku} onChange={setSku} placeholder="PRD-xxxx (unik)" required />
         <Txt label="Nama Varian *" value={variantName} onChange={setVariantName} placeholder="Roundup 486SL (5 Liter)" required />
         <Num label="Harga (Rp) *" value={price} onChange={setPrice} placeholder="650000" min="0" required />
