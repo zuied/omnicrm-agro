@@ -22,6 +22,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/deals/[id]/
     return NextResponse.json({ message: "Diskon masih dalam kewenangan agen (≤5%), tidak butuh approval." }, { status: 400 });
   }
 
+  const tier = discount > 15 ? "hos" : "manager";
+  const approverLabel = tier === "hos" ? "Head of Sales" : "Sales Manager";
+
   const existing = await query<{ id: number; token: string; status: string }>(
     "SELECT id, token, status FROM approval_requests WHERE deal_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1",
     [dealId]
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/deals/[id]/
     const res = await execute(
       `INSERT INTO approval_requests (deal_id, requested_by, discount_percent, value_before, value_after, status, tier, token)
        VALUES (?,?,?,?,?, 'pending', ?, ?)`,
-      [dealId, user.id, discount, valueBefore, Number(deal.total_value), discount > 15 ? "hos" : "manager", token]
+      [dealId, user.id, discount, valueBefore, Number(deal.total_value), tier, token]
     );
     approvalId = res.insertId;
   }
@@ -46,24 +49,23 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/deals/[id]/
   await execute("UPDATE deals SET pipeline_stage = 'Pending Approval', discount_status = 'pending', updated_at = NOW() WHERE id = ?", [dealId]);
 
   const approveUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/approve/${token}`;
-  // Stub integrasi WhatsApp Business API - pesan auto ke Manager
   await execute(
     `INSERT INTO inbox_messages (direction, channel, counterpart, deal_id, subject, body, status)
      VALUES ('outbound','whatsapp', ?, ?, 'Permintaan Persetujuan Diskon', ?, 'sent')`,
     [
-      "Sales Manager (Otomasi WA)",
+      `${approverLabel} (Otomasi WA)`,
       dealId,
       `Permintaan persetujuan diskon ${discount}% untuk ${deal.customer_name} (${deal.ref_no}, nilai Rp ${deal.total_value}). Setujui/Tolak di: ${approveUrl}`,
     ]
   );
 
-  await auditLog({ userId: user.id, action: "APPROVAL_SUBMIT", entityType: "deal", entityId: String(dealId), detail: { approvalId, discount } });
+  await auditLog({ userId: user.id, action: "APPROVAL_SUBMIT", entityType: "deal", entityId: String(dealId), detail: { approvalId, discount, tier } });
 
   return NextResponse.json({
     ok: true,
     approvalId,
     token,
-    message: "Transaksi terkunci. Menunggu persetujuan Manager.",
+    message: `Transaksi terkunci. Menunggu persetujuan ${approverLabel}.`,
     waLink: `https://wa.me/?text=${encodeURIComponent(`Permintaan persetujuan diskon ${discount}% (${deal.ref_no}): ${approveUrl}`)}`,
     approveUrl,
   });

@@ -29,12 +29,20 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/approvals/t
   }
   RATE_LIMIT[token] = now;
 
+  // Ambil info approval untuk menentukan tier & menetapkan reviewerRole sesuai PRD
+  const appr = await getApprovalByToken(token);
+  if (!appr) {
+    return NextResponse.json({ message: "Link persetujuan tidak valid." }, { status: 404 });
+  }
+  const reviewerRole = appr.tier;
+  const reviewerName = body.reviewer_name ?? (appr.tier === "hos" ? "Head of Sales (via Token)" : "Sales Manager (via Token)");
+
   try {
     const result = await approve(body.action, {
       token,
       reviewerId: 0,
-      reviewerName: body.reviewer_name ?? "Manager via WhatsApp",
-      reviewerRole: "manager",
+      reviewerName,
+      reviewerRole,
       note: body.note,
     });
     return NextResponse.json({ ...result });

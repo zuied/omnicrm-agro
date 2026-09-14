@@ -71,19 +71,30 @@ export async function approve(action: "approved" | "rejected", opts: {
   note?: string;
 }) {
   const row = opts.approvalId
-    ? (await query<{ id: number; deal_id: number; status: string; discount_percent: number }>(
-        "SELECT id, deal_id, status, discount_percent FROM approval_requests WHERE id = ?",
+    ? (await query<{ id: number; deal_id: number; status: string; discount_percent: number; tier: string }>(
+        "SELECT id, deal_id, status, discount_percent, tier FROM approval_requests WHERE id = ?",
         [opts.approvalId]
       ))[0]
     : opts.token
-      ? (await query<{ id: number; deal_id: number; status: string; discount_percent: number }>(
-          "SELECT id, deal_id, status, discount_percent FROM approval_requests WHERE token = ?",
+      ? (await query<{ id: number; deal_id: number; status: string; discount_percent: number; tier: string }>(
+          "SELECT id, deal_id, status, discount_percent, tier FROM approval_requests WHERE token = ?",
           [opts.token]
         ))[0]
       : undefined;
 
   if (!row) throw new Error("Pengajuan approval tidak ditemukan.");
   if (row.status !== "pending") throw new Error(`Pengajuan sudah berstatus ${row.status.toUpperCase()}.`);
+
+  // Validasi tier sesuai matriks PRD §2.2
+  const ALLOWED_ROLES: Record<string, string[]> = {
+    manager: ["manager", "admin"],
+    hos: ["hos", "admin"],
+  };
+  const permitted = ALLOWED_ROLES[row.tier];
+  if (permitted && !permitted.includes(opts.reviewerRole)) {
+    const target = row.tier === "hos" ? "Head of Sales atau Admin" : "Sales Manager atau Admin";
+    throw new Error(`Approval ini hanya dapat direview oleh ${target}.`);
+  }
 
   const reviewedBy = opts.reviewerId > 0 ? opts.reviewerId : null;
 

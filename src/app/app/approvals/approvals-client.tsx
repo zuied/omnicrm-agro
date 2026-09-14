@@ -21,7 +21,8 @@ interface Approval {
   review_note: string | null;
 }
 
-export default function ApprovalsClient() {
+export default function ApprovalsClient({ role = "agent" }: { role?: string }) {
+  const canReview = (a: Approval) => role === "admin" || (a.tier === "manager" && role === "manager") || (a.tier === "hos" && role === "hos");
   const [approvals, setApprovals] = React.useState<Approval[] | null>(null);
   const [filter, setFilter] = React.useState<"pending" | "all">("pending");
   const [selected, setSelected] = React.useState<Approval | null>(null);
@@ -118,7 +119,7 @@ export default function ApprovalsClient() {
                 </div>
               </div>
 
-              {a.status === "pending" && (
+              {a.status === "pending" && canReview(a) && (
                 <div className="mt-3 flex gap-2">
                   <Button
                     variant="outline"
@@ -130,6 +131,11 @@ export default function ApprovalsClient() {
                   <Button className="flex-1" onClick={() => { setSelected(a); setBusy("approved"); }}>
                     <CheckCircle2 className="h-4 w-4" /> Setujui
                   </Button>
+                </div>
+              )}
+              {a.status === "pending" && !canReview(a) && (
+                <div className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+                  Menunggu review oleh {a.tier === "hos" ? "Head of Sales" : "Sales Manager"} (di luar kewenangan Anda).
                 </div>
               )}
               {a.review_note && <div className="mt-2 rounded-lg bg-mist px-3 py-2 text-xs text-slate-500">Catatan: {a.review_note}</div>}
