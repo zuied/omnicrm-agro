@@ -17,7 +17,7 @@ export async function GET() {
     query("SELECT id, product_name, category, is_active FROM products WHERE is_active = 1 ORDER BY product_name"),
     query(
       `SELECT c.id, c.account_id, c.first_name AS name, c.job_title, c.whatsapp_number, c.email, 'B2B' AS type, a.region,
-              a.company_name, a.legal_type, a.phone AS account_phone, a.email AS account_email
+              a.company_name, a.legal_type, a.phone AS account_phone, a.email AS account_email, NULL AS land_size_ha, NULL AS current_crop, NULL AS village
        FROM contacts c JOIN accounts a ON a.id = c.account_id
        UNION ALL
        SELECT id, NULL, full_name, 'Petani', whatsapp_number, email, 'B2C', region,
