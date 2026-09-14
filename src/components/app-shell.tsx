@@ -101,8 +101,14 @@ export default function AppShell({ user, children }: { user: SessionUser; childr
           <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
             <MapPin className="h-3.5 w-3.5" /> Lokasi Aktif
           </div>
-          <div className="mt-1.5 text-sm font-semibold text-ink">Gudang Pekanbaru (PKU)</div>
-          <div className="text-xs text-slate-500">Sektor Sawit Riau &amp; Sumatra</div>
+          {user.region ? (
+            <>
+              <div className="mt-1.5 text-sm font-semibold text-ink">{user.region}</div>
+              <div className="text-xs text-slate-500">Wilayah operasi Anda</div>
+            </>
+          ) : (
+            <div className="mt-1.5 text-xs text-slate-400 italic">Belum diatur admin</div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 border-t border-slate-200 px-4 py-4">

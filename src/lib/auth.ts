@@ -19,7 +19,14 @@ export interface SessionUser {
 const secret = new TextEncoder().encode(process.env.AUTH_SECRET ?? "omnicrm-agro-dev-secret-2026");
 
 export async function signToken(user: SessionUser): Promise<string> {
-  return new SignJWT({ sub: String(user.id), name: user.full_name, role: user.role, email: user.email })
+  return new SignJWT({
+    sub: String(user.id),
+    name: user.full_name,
+    role: user.role,
+    email: user.email,
+    phone: user.phone ?? null,
+    region: user.region ?? null,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("12h")
@@ -34,6 +41,8 @@ export async function verifyToken(token: string): Promise<SessionUser | null> {
       full_name: String(payload.name ?? ""),
       role: (payload.role as Role) ?? "agent",
       email: String(payload.email ?? ""),
+      phone: payload.phone ? String(payload.phone) : undefined,
+      region: payload.region ? String(payload.region) : undefined,
     };
   } catch {
     return null;
